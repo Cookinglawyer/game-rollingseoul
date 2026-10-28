@@ -107,7 +107,8 @@ function buildBuildings(buildings) {
     if (polygonArea(pts) < 0) pts = pts.slice().reverse(); // 반시계 방향으로
     const h = b.h;
     // 건물마다 살짝 다른 색 (전통 건축은 따로)
-    if (b.k === 'traditional') color.set('#b5483a');
+    if (b.c) color.set(b.c);
+    else if (b.k === 'traditional') color.set('#b5483a');
     else color.setHSL(0.08 + ((bi * 37) % 10) * 0.012, 0.12, 0.72 + ((bi * 17) % 7) * 0.025);
 
     for (let i = 0; i < pts.length; i++) {
@@ -129,7 +130,7 @@ function buildBuildings(buildings) {
 
     const shapePts = pts.map(toVec2);
     const tris = THREE.ShapeUtils.triangulateShape(shapePts, []);
-    const roof = b.k === 'traditional' ? new THREE.Color('#3d4a4f') : color.clone().multiplyScalar(0.85);
+    const roof = b.rc ? new THREE.Color(b.rc) : b.k === 'traditional' ? new THREE.Color('#3d4a4f') : color.clone().multiplyScalar(0.85);
     for (const t of tris) {
       for (const idx of [t[0], t[2], t[1]]) {
         roofPos.push(pts[idx][0], h, -pts[idx][1]);
@@ -287,6 +288,7 @@ export class World {
     this.grid = new SegmentGrid(8);
     this.footprints = [];
     for (const b of map.buildings || []) {
+      if (b.h < 2) continue; // 아주 낮은 구조물은 장식으로만 (넘어갈 수 있음)
       const pts = b.p;
       const bb = [Infinity, Infinity, -Infinity, -Infinity];
       for (const [x, n] of pts) {
@@ -354,6 +356,53 @@ export class World {
     if (pos.z < z0 + r) { pos.z = z0 + r; hit = { x: 0, z: 1 }; }
     if (pos.z > z1 - r) { pos.z = z1 - r; hit = { x: 0, z: -1 }; }
     return hit;
+  }
+
+  // ---------- 이동 가능 영역 ----------
+  // 2m 격자마다 가장 가까운 벽까지 거리(여유 폭)를 계산해 둔다.
+  buildNav(cell = 2) {
+    const [x0, z0, x1, z1] = this.play;
+    const w = Math.ceil((x1 - x0) / cell), h = Math.ceil((z1 - z0) / cell);
+    const clear = new Float32Array(w * h);
+    for (let j = 0; j < h; j++) {
+      for (let i = 0; i < w; i++) {
+        const x = x0 + (i + 0.5) * cell, z = z0 + (j + 0.5) * cell;
+        const edge = Math.min(x - x0, x1 - x, z - z0, z1 - z);
+        clear[j * w + i] = this.isBlocked(x, z) ? 0 : Math.min(edge, this.distToWalls(x, z, 12));
+      }
+    }
+    this.nav = { cell, w, h, clear };
+  }
+
+  navIndex(x, z) {
+    const { cell, w, h } = this.nav;
+    const i = Math.floor((x - this.play[0]) / cell), j = Math.floor((z - this.play[1]) / cell);
+    return i < 0 || j < 0 || i >= w || j >= h ? -1 : j * w + i;
+  }
+
+  // (x, z)에서 시작해 여유 폭이 radius 이상인 칸으로만 퍼져 나가는 거리(칸 수) 지도
+  flood(x, z, radius) {
+    const { w, h, clear } = this.nav;
+    const dist = new Int32Array(w * h).fill(-1);
+    let start = this.navIndex(x, z);
+    if (start < 0) return dist;
+    const queue = new Int32Array(w * h);
+    let head = 0, tail = 0;
+    dist[start] = 0;
+    queue[tail++] = start;
+    while (head < tail) {
+      const c = queue[head++];
+      const ci = c % w, cj = (c / w) | 0;
+      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const ni = ci + di, nj = cj + dj;
+        if (ni < 0 || nj < 0 || ni >= w || nj >= h) continue;
+        const n = nj * w + ni;
+        if (dist[n] >= 0 || clear[n] < radius) continue;
+        dist[n] = dist[c] + 1;
+        queue[tail++] = n;
+      }
+    }
+    return dist;
   }
 
   // 미니맵용 건물 그리기

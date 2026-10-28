@@ -493,3 +493,15 @@ html, body {
   .minimap { width: 110px !important; height: 110px !important; }
   .hud-placeholder { top: 80px; white-space: normal; text-align: center; width: calc(100% - 32px); }
 }
+
+.attribution {
+  position: absolute;
+  left: 50%;
+  bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: 11px;
+  color: rgba(43, 26, 61, 0.7);
+  white-space: nowrap;
+  pointer-events: none;
+}

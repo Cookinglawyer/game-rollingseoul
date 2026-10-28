@@ -7,6 +7,9 @@ import { initAudio, popSound, bonkSound, fanfare, tick } from './audio.js';
 // 흡수할 때 부피가 얼마나 늘어나는지 (밸런스: tools/sim 참고)
 const GROWTH = 1.3;
 const MAX_STUCK = 280;
+// 벽과의 충돌에 쓰는 공 반지름 상한. 물건은 이 반지름으로 갈 수 있는 곳에만 놓이므로
+// 공이 아무리 커져도 남은 물건에 닿을 수 있다. (더 커지면 벽에 살짝 파고든다)
+const WALL_R = 4.5;
 const SKY = '#bfe3ff';
 
 function rng(seed) {
@@ -153,7 +156,14 @@ export class Game {
       const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
       roadSegs.push({ a, b, w: r.w, len, acc: (roadLen += len) });
     }
-    const mapTrees = (this.mapData.trees || []).map(([x, n]) => [x, -n]).filter(([x, z]) => world.inPlay(x, z, 1));
+    // 시작점에서 다 큰 공(반지름 WALL_R)으로 갈 수 있는 칸에만 배치
+    world.buildNav(2);
+    const reach = world.flood(sx, sz, WALL_R);
+    const reachable = (this.reachable = (x, z) => {
+      const i = world.navIndex(x, z);
+      return i >= 0 && reach[i] >= 0;
+    });
+    const mapTrees = (this.mapData.trees || []).map(([x, n]) => [x, -n]).filter(([x, z]) => world.inPlay(x, z, 1) && reachable(x, z));
 
     this.items = [];
     this.meshes = [];
@@ -189,6 +199,7 @@ export class Game {
           z = sz + Math.sin(ang) * rr;
         }
         if (!world.inPlay(x, z, type.foot + 0.3)) continue;
+        if (!reachable(x, z)) continue;
         if (Math.hypot(x - sx, z - sz) < 0.15 + type.foot) continue;
         if (!free(x, z, type.foot)) continue;
         if (world.isBlocked(x, z, type.foot + 0.3)) continue;
@@ -355,7 +366,7 @@ export class Game {
 
   moveBall(dt, rawDt) {
     const inp = this.input;
-    const speed = 1.0 + 3.0 * this.diameter;
+    const speed = 1.5 + 3.0 * this.diameter;
     this.heading += inp.turn * 2.1 * dt;
     const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
     const tx = fx * inp.forward * speed, tz = fz * inp.forward * speed;
@@ -369,12 +380,17 @@ export class Game {
     for (const m of this.stuck) m.position.copy(m.userData.dir).multiplyScalar(this.drawR * m.userData.depth);
 
     const pos = this.ball.position;
+    // 작을 때 좁은 골목에 들어갔다가 그 안에서 커져도 갇히지 않도록,
+    // 벽 충돌 반지름을 지금 위치의 여유 폭에 맞춰 줄인다
+    let wallR = Math.min(this.drawR, WALL_R);
+    const ci = this.world.navIndex(pos.x, pos.z);
+    if (ci >= 0 && this.world.nav.clear[ci] < wallR) wallR = Math.max(0.3, this.world.nav.clear[ci]);
     const stepLen = Math.hypot(this.vel.x, this.vel.z) * rawDt;
     const steps = Math.max(1, Math.ceil(stepLen / (this.r * 0.5)));
     for (let s = 0; s < steps; s++) {
       pos.x += (this.vel.x * rawDt) / steps;
       pos.z += (this.vel.z * rawDt) / steps;
-      const hit = this.world.resolveCircle(pos, this.drawR);
+      const hit = this.world.resolveCircle(pos, wallR);
       if (hit) {
         const vn = this.vel.x * hit.x + this.vel.z * hit.z;
         if (vn < 0) {
@@ -435,7 +451,8 @@ export class Game {
         it.hop = Math.abs(Math.sin(this.elapsed * 9 + it.idx)) * 0.03 * (it.vx || it.vz ? 1 : 0);
       }
       const nx = it.x + it.vx * dt, nz = it.z + it.vz * dt;
-      if ((it.vx || it.vz) && this.world.inPlay(nx, nz, it.foot + 0.3) && !this.world.isBlocked(nx, nz, it.foot)) {
+      // 돌아다니는 것들도 공이 갈 수 있는 곳 안에서만
+      if ((it.vx || it.vz) && this.world.inPlay(nx, nz, it.foot + 0.3) && this.reachable(nx, nz) && !this.world.isBlocked(nx, nz, it.foot)) {
         it.x = nx;
         it.z = nz;
       } else if (it.vx || it.vz) {

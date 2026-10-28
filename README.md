@@ -55,6 +55,15 @@ python3 tools/fetch_osm.py gwanghwamun
 Overpass API(overpass-api.de)에서 `tools/regions.json`의 범위를 받아 `data/gwanghwamun.json`을 만든다.
 지도 파일이 없으면 게임은 건물 없는 테스트용 빈 광장으로 실행된다.
 
+서버에서 Overpass 접속이 안 될 때는 브라우저로 받은 파일을 변환만 할 수 있다.
+
+1. [overpass-turbo.eu](https://overpass-turbo.eu)에 `tools/fetch_osm.py`의 `build_query()` 쿼리를 넣고 실행
+2. 내보내기(Export) → raw OSM data 다운로드
+3. `python3 tools/fetch_osm.py gwanghwamun --raw export.json`
+
+현재 `data/gwanghwamun.json`은 2026-10-28 OSM 데이터(건물 428, 도로 326, 광장·녹지 103, 가로수 138)로 만들었다.
+지하 시설(`layer`/`level` 음수, 예: 세종이야기)은 제외하고, 조선 건축 태그가 있는 건물(광화문, 동십자각 등)은 전통 건물 색으로 그린다.
+
 - 건물: 외곽선 + 높이(`height` → `building:levels` × 3.3m → 기본값 14m)
 - 도로: 중심선 + 폭(`lanes` × 3.3m 또는 도로 등급별 기본값)
 - 광장/공원/물, 가로수(`natural=tree`, `tree_row`)
@@ -62,15 +71,18 @@ Overpass API(overpass-api.de)에서 `tools/regions.json`의 범위를 받아 `da
 ## 밸런스 메모
 
 - 흡수 시 성장: `지름³ += 1.3 × 물건크기³` (`Game.js`의 `GROWTH`)
-- 이동 속도: `1.0 + 3.0 × 지름` m/s
+- 이동 속도: `1.5 + 3.0 × 지름` m/s
 - 작은 물건일수록 시작점 가까이 몰려 있다 (`Game.js`의 `TIER_RANGE`)
-- 빈 광장 기준 자동 봇(최적 조향)이 전부 먹는 데 약 370~390초 → 1스테이지 제한 7분.
-  실제 지도가 들어오면 다시 조정 필요.
+- 물건은 반지름 4.5m 공이 시작점에서 갈 수 있는 곳에만 놓인다 (2m 격자 이동 가능 영역).
+  벽 충돌 반지름도 4.5m가 상한이라, 공이 아무리 커져도 남은 물건에 닿을 수 있다.
+  작을 때 좁은 골목에 들어갔다가 커져도 갇히지 않게 충돌 반지름을 그 자리 여유 폭에 맞춘다.
+- 실제 광화문 지도 기준 길찾기 봇이 전부 먹는 데 약 450초 → 1스테이지 제한 8분. 실제 플레이 후 조정 필요.
 
 ## 다음 작업
 
-- [ ] 광화문 일대 실제 OSM 데이터 받아 `data/gwanghwamun.json` 커밋
-- [ ] 실제 지도 기준 밸런스 재조정
+- [x] 광화문 일대 실제 OSM 데이터 받아 `data/gwanghwamun.json` 커밋
+- [ ] 실제 플레이 기준 밸런스 재조정 (제한 시간, 물건 개수)
+- [ ] 높은 건물 때문에 카메라가 가려지는 문제
 - [ ] 큰 물체에 세게 부딪히면 붙은 물건이 떨어지는 효과
 - [ ] 2스테이지(홍대) 구역 설정
 

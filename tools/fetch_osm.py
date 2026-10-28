@@ -32,7 +32,7 @@ ROAD_WIDTH = {
 }
 CAR_ROADS = {'motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'service',
              'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link'}
-TRADITIONAL = {'palace', 'temple', 'shrine', 'gate', 'pavilion'}
+TRADITIONAL = {'palace', 'temple', 'shrine', 'gate', 'gatehouse', 'pavilion'}
 
 
 def build_query(bbox):
@@ -75,6 +75,18 @@ class Projector:
         return [round((lon - self.lon0) * self.kx, 2), round((lat - self.lat0) * self.ky, 2)]
 
 
+def is_traditional(tags):
+    return (tags.get('building') in TRADITIONAL or 'historic' in tags
+            or tags.get('building:architecture') == 'joseon' or 'historic:period' in tags)
+
+
+def is_underground(tags):
+    for key in ('layer', 'level'):
+        if tags.get(key, '0').strip().startswith('-'):
+            return True
+    return tags.get('location') == 'underground'
+
+
 def parse_height(tags):
     for key in ('height', 'building:height'):
         if key in tags:
@@ -88,7 +100,9 @@ def parse_height(tags):
         except ValueError:
             pass
     kind = tags.get('building', 'yes')
-    if kind in TRADITIONAL or tags.get('historic'):
+    if kind == 'gatehouse':
+        return 15
+    if is_traditional(tags):
         return 9
     return {'house': 7, 'garage': 3, 'kiosk': 3, 'roof': 4, 'shed': 3}.get(kind, 14)
 
@@ -118,9 +132,11 @@ def convert(raw, region):
         if len(pts) < 3:
             return
         b = {'p': pts, 'h': round(parse_height(tags), 1)}
-        kind = tags.get('building', '')
-        if kind in TRADITIONAL or tags.get('historic') or tags.get('roof:shape') == 'hipped':
+        if is_traditional(tags):
             b['k'] = 'traditional'
+        for key, short in (('building:colour', 'c'), ('roof:colour', 'rc')):
+            if tags.get(key, '').startswith('#'):
+                b[short] = tags[key]
         if tags.get('name'):
             b['n'] = tags['name']
         buildings.append(b)
@@ -133,12 +149,12 @@ def convert(raw, region):
         if len(pts) < 2:
             continue
         closed = way['nodes'][0] == way['nodes'][-1]
-        if 'building' in tags and tags.get('building') not in ('no',) and tags.get('layer', '0') not in ('-1', '-2'):
+        if 'building' in tags and tags.get('building') != 'no' and not is_underground(tags):
             if closed:
                 add_building(pts, tags)
         elif 'highway' in tags:
             hw = tags['highway']
-            if tags.get('tunnel') == 'yes' or tags.get('layer', '0').startswith('-'):
+            if tags.get('tunnel') == 'yes' or is_underground(tags):
                 continue
             if closed and (tags.get('area') == 'yes' or hw == 'pedestrian'):
                 areas.append({'k': 'plaza', 'p': pts[:-1]})
@@ -178,7 +194,7 @@ def convert(raw, region):
 
     # 멀티폴리곤 건물(relation): 바깥 테두리만 사용
     for el in raw['elements']:
-        if el['type'] != 'relation' or 'building' not in el.get('tags', {}):
+        if el['type'] != 'relation' or 'building' not in el.get('tags', {}) or is_underground(el['tags']):
             continue
         for m in el.get('members', []):
             if m['type'] == 'way' and m.get('role') == 'outer' and m['ref'] in ways:

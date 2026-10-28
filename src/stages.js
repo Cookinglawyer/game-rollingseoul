@@ -12,8 +12,8 @@ export const STAGES = [
     desc: '동전, 캔, 비둘기부터 시작! 세종대왕 동상 앞에서 굴리기 시작해 광장을 싹쓸이하자.',
     map: 'data/gwanghwamun.json',
     startSize: 0.1,
-    goalSize: 15,
-    timeLimit: 420,
+    goalSize: 14,
+    timeLimit: 480,
     targets: ['동전', '캔', '비둘기', '따릉이', '시민', '서울 택시', '은행나무', '간선버스'],
   },
   {
