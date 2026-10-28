@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>서울 건물 다 따먹기</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="src/style.css" />
+</head>
+<body>
+  <canvas id="bg"></canvas>
+
+  <!-- 타이틀 화면 -->
+  <section id="screen-title" class="screen active">
+    <div class="title-wrap">
+      <p class="kicker">굴리고 · 붙이고 · 커지고</p>
+      <h1 class="game-title">
+        <span class="t1">서울</span>
+        <span class="t2">건물 다</span>
+        <span class="t3">따먹기</span>
+      </h1>
+      <button id="btn-start" class="btn-start">START</button>
+      <p class="hint">Enter 또는 Space 키로도 시작할 수 있어요</p>
+    </div>
+    <footer class="credit">v0.1 prototype</footer>
+  </section>
+
+  <!-- 스테이지 선택 화면 -->
+  <section id="screen-stages" class="screen">
+    <header class="stage-header">
+      <button id="btn-back-title" class="btn-ghost">← 처음으로</button>
+      <h2>스테이지 선택</h2>
+      <span class="progress" id="progress"></span>
+    </header>
+    <div id="stage-list" class="stage-list"></div>
+  </section>
+
+  <!-- 스테이지 시작 전 화면 (게임 플레이는 다음 단계에서 구현) -->
+  <section id="screen-briefing" class="screen">
+    <div class="briefing">
+      <p class="brief-no" id="brief-no"></p>
+      <h2 id="brief-name"></h2>
+      <p class="brief-district" id="brief-district"></p>
+      <p class="brief-desc" id="brief-desc"></p>
+      <dl class="brief-stats">
+        <div><dt>시작 크기</dt><dd id="brief-start"></dd></div>
+        <div><dt>목표 크기</dt><dd id="brief-goal"></dd></div>
+        <div><dt>제한 시간</dt><dd id="brief-time"></dd></div>
+      </dl>
+      <p class="brief-targets" id="brief-targets"></p>
+      <div class="brief-actions">
+        <button id="btn-back-stages" class="btn-ghost">← 스테이지 목록</button>
+        <button id="btn-play" class="btn-start small">굴리기 시작!</button>
+      </div>
+      <p class="toast" id="toast"></p>
+    </div>
+  </section>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
