@@ -1,4 +1,5 @@
 import { STAGES } from './stages.js';
+import { Game, formatSize as formatBall } from './game/Game.js';
 
 const SAVE_KEY = 'seoul-ddamukgi-save';
 
@@ -11,6 +12,14 @@ function loadSave() {
   }
 }
 const save = loadSave();
+
+function writeSave() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+  } catch {
+    // 저장이 막힌 환경에서는 이번 실행 동안만 기록 유지
+  }
+}
 
 function isUnlocked(index) {
   return index === 0 || Boolean(save.cleared[STAGES[index - 1].id]);
@@ -59,8 +68,8 @@ function renderStages() {
       <p class="desc">${stage.desc}</p>
       <div class="meta">
         <span>⏱ ${formatTime(stage.timeLimit)}</span>
-        <span>🎯 ${formatSize(stage.goalSize)}</span>
-        <span class="best">${record ? `★ ${formatSize(record.size)}` : ''}</span>
+        <span>${stage.map ? '플레이 가능' : '준비 중'}</span>
+        <span class="best">${record ? `★ ${formatBall(record.size)}` : ''}</span>
       </div>`;
     card.addEventListener('click', () => openBriefing(stage));
     list.appendChild(card);
@@ -69,13 +78,14 @@ function renderStages() {
   document.getElementById('progress').textContent = `클리어 ${clearedCount} / ${STAGES.length}`;
 }
 
+let currentStage = null;
 function openBriefing(stage) {
+  currentStage = stage;
   document.getElementById('brief-no').textContent = stage.final ? 'FINAL STAGE' : `STAGE ${stage.no}`;
   document.getElementById('brief-name').textContent = stage.name;
   document.getElementById('brief-district').textContent = stage.district;
   document.getElementById('brief-desc').textContent = stage.desc;
   document.getElementById('brief-start').textContent = formatSize(stage.startSize);
-  document.getElementById('brief-goal').textContent = formatSize(stage.goalSize);
   document.getElementById('brief-time').textContent = formatTime(stage.timeLimit);
   document.getElementById('brief-targets').textContent = `먹잇감: ${stage.targets.join(' · ')}`;
   document.getElementById('toast').textContent = '';
@@ -93,14 +103,80 @@ document.getElementById('btn-back-stages').addEventListener('click', () => {
   show('screen-stages');
 });
 document.getElementById('btn-play').addEventListener('click', () => {
-  // TODO: 3D 게임 플레이 화면 연결
-  document.getElementById('toast').textContent = '게임 플레이 화면은 다음 단계에서 만들어요!';
+  if (!currentStage.map) {
+    document.getElementById('toast').textContent = '이 스테이지는 아직 지도를 준비 중이에요!';
+    return;
+  }
+  startGame(currentStage);
+});
+
+// ---------- 게임 ----------
+const gameRoot = document.getElementById('screen-game');
+const $g = (id) => document.getElementById(id);
+let game = null;
+
+function startGame(stage) {
+  game?.dispose();
+  $g('pause').hidden = true;
+  $g('result').hidden = true;
+  show('screen-game');
+  bgRunning = false;
+  game = new Game(gameRoot, stage, (res) => showResult(stage, res));
+  window.__game = game; // 디버그·자동 테스트용
+  game.start();
+}
+
+function leaveGame() {
+  game?.dispose();
+  game = null;
+  bgRunning = true;
+  requestAnimationFrame(frame);
+  renderStages();
+  show('screen-stages');
+}
+
+function showResult(stage, res) {
+  const t = Math.round(res.timeUsed);
+  $g('result-kicker').textContent = stage.name;
+  $g('result-title').textContent = res.win ? '싹 다 먹었다!' : '시간 초과';
+  $g('result-size').textContent = formatBall(res.size);
+  $g('result-eaten').textContent = `${res.eaten} / ${res.total}`;
+  $g('result-time').textContent = formatTime(t);
+  if (res.win) {
+    const prev = save.cleared[stage.id];
+    const best = !prev || res.timeUsed < prev.time;
+    save.cleared[stage.id] = best ? { size: res.size, time: res.timeUsed } : prev;
+    writeSave();
+    const next = STAGES[STAGES.indexOf(stage) + 1];
+    $g('result-note').textContent = (best && prev ? '최고 기록! ' : '') + (next ? `다음 스테이지 '${next.name}'이(가) 열렸어요.` : '');
+  } else {
+    $g('result-note').textContent = `${res.total - res.eaten}개가 남았어요. 다시 도전!`;
+  }
+  $g('result').hidden = false;
+}
+
+function togglePause(p) {
+  if (!game || !game.running) return;
+  game.setPaused(p);
+  $g('pause').hidden = !p;
+}
+
+$g('btn-pause').addEventListener('click', () => togglePause(true));
+$g('btn-resume').addEventListener('click', () => togglePause(false));
+$g('btn-retry-pause').addEventListener('click', () => startGame(game.stage));
+$g('btn-quit').addEventListener('click', leaveGame);
+$g('btn-retry').addEventListener('click', () => startGame(game.stage));
+$g('btn-next').addEventListener('click', leaveGame);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) togglePause(true);
 });
 
 window.addEventListener('keydown', (e) => {
   if (current?.id === 'screen-title' && (e.key === 'Enter' || e.key === ' ')) {
     e.preventDefault();
     document.getElementById('btn-start').click();
+  } else if (current?.id === 'screen-game') {
+    if (e.key === 'Escape' || e.key.toLowerCase() === 'p') togglePause(!game?.paused);
   } else if (e.key === 'Escape') {
     if (current?.id === 'screen-briefing') document.getElementById('btn-back-stages').click();
     else if (current?.id === 'screen-stages') show('screen-title');
@@ -172,7 +248,9 @@ function drawSkyline(sky, offset, color, groundY) {
 
 let last = performance.now();
 let scroll = 0;
+let bgRunning = true; // 게임 중에는 배경 애니메이션을 멈춘다
 function frame(now) {
+  if (!bgRunning) return;
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   scroll += dt * 120;

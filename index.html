@@ -45,7 +45,7 @@
       <p class="brief-desc" id="brief-desc"></p>
       <dl class="brief-stats">
         <div><dt>시작 크기</dt><dd id="brief-start"></dd></div>
-        <div><dt>목표 크기</dt><dd id="brief-goal"></dd></div>
+        <div><dt>클리어 조건</dt><dd>전부 먹기</dd></div>
         <div><dt>제한 시간</dt><dd id="brief-time"></dd></div>
       </dl>
       <p class="brief-targets" id="brief-targets"></p>
@@ -53,7 +53,66 @@
         <button id="btn-back-stages" class="btn-ghost">← 스테이지 목록</button>
         <button id="btn-play" class="btn-start small">굴리기 시작!</button>
       </div>
+      <p class="brief-controls">조작: <b>W/↑</b> 앞으로 · <b>S/↓</b> 뒤로 · <b>A D/← →</b> 방향 전환 · <b>Esc</b> 일시정지<br />휴대폰: 화면을 누른 채 드래그</p>
       <p class="toast" id="toast"></p>
+    </div>
+  </section>
+
+  <!-- 게임 플레이 -->
+  <section id="screen-game" class="screen">
+    <canvas id="game-canvas"></canvas>
+    <div id="touch-layer"></div>
+    <div id="stick" hidden><div id="stick-knob"></div></div>
+
+    <div class="hud">
+      <div class="hud-size">
+        <span class="hud-label">공 크기</span>
+        <span id="hud-size">10.0cm</span>
+      </div>
+      <div class="hud-center">
+        <span id="hud-stage" class="hud-stage"></span>
+        <span id="hud-time" class="hud-time">0:00</span>
+      </div>
+      <div class="hud-right">
+        <button id="btn-pause" class="btn-pause" aria-label="일시정지">II</button>
+        <span class="hud-label">남은 물체</span>
+        <span id="hud-left">0</span>
+        <div class="hud-bar"><div id="hud-bar"></div></div>
+      </div>
+    </div>
+    <p id="hud-placeholder" class="hud-placeholder" hidden>지도 데이터 준비 중 · 지금은 건물이 없는 테스트용 빈 광장입니다</p>
+    <div id="feed" class="feed"></div>
+    <div id="banner" class="banner" hidden></div>
+    <div id="countdown" class="countdown" hidden>READY</div>
+    <div id="arrow" class="arrow" hidden><span>▲</span><em id="arrow-dist"></em></div>
+    <canvas id="minimap" class="minimap"></canvas>
+
+    <div id="pause" class="overlay" hidden>
+      <div class="panel">
+        <h2>일시정지</h2>
+        <div class="panel-actions">
+          <button id="btn-resume" class="btn-start small">계속하기</button>
+          <button id="btn-retry-pause" class="btn-ghost">처음부터 다시</button>
+          <button id="btn-quit" class="btn-ghost">스테이지 목록</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="result" class="overlay" hidden>
+      <div class="panel">
+        <p class="result-kicker" id="result-kicker"></p>
+        <h2 id="result-title"></h2>
+        <dl class="brief-stats">
+          <div><dt>최종 크기</dt><dd id="result-size"></dd></div>
+          <div><dt>먹은 물체</dt><dd id="result-eaten"></dd></div>
+          <div><dt>걸린 시간</dt><dd id="result-time"></dd></div>
+        </dl>
+        <p class="result-note" id="result-note"></p>
+        <div class="panel-actions">
+          <button id="btn-retry" class="btn-ghost">다시 하기</button>
+          <button id="btn-next" class="btn-start small">스테이지 목록</button>
+        </div>
+      </div>
     </div>
   </section>
 

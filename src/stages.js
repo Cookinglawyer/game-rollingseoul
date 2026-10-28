@@ -1,19 +1,20 @@
 // 스테이지 정의
 // bbox: [서쪽 경도, 남쪽 위도, 동쪽 경도, 북쪽 위도] — 나중에 지도 데이터를 잘라올 범위
-// startSize / goalSize: 공 지름(m)
+// startSize: 시작 공 지름(m), goalSize: 전부 먹었을 때 예상 크기(m)
+// map: tools/fetch_osm.py 로 만든 지도 데이터 (없으면 아직 준비 중)
 // timeLimit: 초
 export const STAGES = [
   {
-    id: 'gyeongbokgung',
+    id: 'gwanghwamun',
     no: 1,
-    name: '경복궁 앞마당',
+    name: '광화문 광장',
     district: '종로구',
-    desc: '동전, 캔, 비둘기부터 시작! 광화문 광장을 싹쓸이하자.',
-    bbox: [126.9740, 37.5740, 126.9790, 37.5790],
+    desc: '동전, 캔, 비둘기부터 시작! 세종대왕 동상 앞에서 굴리기 시작해 광장을 싹쓸이하자.',
+    map: 'data/gwanghwamun.json',
     startSize: 0.1,
-    goalSize: 3,
-    timeLimit: 180,
-    targets: ['동전', '캔', '비둘기', '화분'],
+    goalSize: 15,
+    timeLimit: 420,
+    targets: ['동전', '캔', '비둘기', '따릉이', '시민', '서울 택시', '은행나무', '간선버스'],
   },
   {
     id: 'hongdae',
