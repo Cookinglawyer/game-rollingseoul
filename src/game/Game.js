@@ -8,7 +8,9 @@ import { Player } from './player.js';
 // 흡수할 때 부피가 얼마나 늘어나는지: 지름³ += GROWTH × 크기³
 const GROWTH = 2.6;
 const BUILDING_GROWTH = 0.8; // 건물은 덩치가 커서 따로 낮춘다
-const MAX_STUCK = 280;
+const MAX_STUCK = 700;
+// 공 속(core)은 겉보기 반지름보다 작게 그린다. 최근에 붙은 물건 층이 표면을 덮는다.
+const CORE_RATIO = 0.7;
 // 물건은 반지름 이 정도 공이 시작점에서 갈 수 있는 곳에만 놓는다
 const PLACE_R = 4.5;
 const SKY = '#bfe3ff';
@@ -30,25 +32,52 @@ export function formatSize(d) {
   return `${d.toFixed(d < 10 ? 2 : d < 100 ? 1 : 0)}m`;
 }
 
+// 공 속 표면: 줄무늬 공 위에 자잘한 잡동사니가 빽빽하게 붙은 모양
 function ballTexture() {
   const c = document.createElement('canvas');
-  c.width = 256;
-  c.height = 128;
+  c.width = 512;
+  c.height = 256;
   const g = c.getContext('2d');
-  const colors = ['#ff3d7f', '#ffe14d', '#3ee0b5', '#5b8cff', '#ff8a3d'];
+  const stripes = ['#ff3d7f', '#ffe14d', '#3ee0b5', '#5b8cff', '#ff8a3d'];
   for (let i = 0; i < 8; i++) {
-    g.fillStyle = colors[i % colors.length];
-    g.fillRect(i * 32, 0, 32, 128);
+    g.fillStyle = stripes[i % stripes.length];
+    g.fillRect(i * 64, 0, 64, 256);
   }
-  g.fillStyle = 'rgba(255,255,255,0.85)';
-  for (let i = 0; i < 18; i++) {
-    g.beginPath();
-    g.arc((i * 53) % 256, (i * 37) % 128, 7, 0, Math.PI * 2);
-    g.fill();
+  const junk = ['#d7263d', '#2fae6b', '#f4f4f4', '#2a6fdb', '#e8b923', '#8b8f99', '#c96a3b', '#1c1c24', '#ff6a13', '#9aa5b1', '#f6c90e', '#a05195'];
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 1400; i++) {
+    const x = rnd() * 512, y = rnd() * 256, w = 4 + rnd() * 16, h = 3 + rnd() * 10;
+    g.save();
+    g.translate(x, y);
+    g.rotate(rnd() * Math.PI);
+    g.fillStyle = junk[(rnd() * junk.length) | 0];
+    g.fillRect(-w / 2, -h / 2, w, h);
+    g.strokeStyle = 'rgba(30,20,40,0.35)';
+    g.lineWidth = 1;
+    g.strokeRect(-w / 2, -h / 2, w, h);
+    g.restore();
   }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
   return tex;
+}
+
+// 울퉁불퉁한 공 모양 (반지름 1 근처에서 ±6%)
+function lumpySphere() {
+  const g = new THREE.SphereGeometry(1, 48, 32);
+  const p = g.attributes.position;
+  const v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i);
+    const n = Math.sin(v.x * 7.1 + 1.3) * Math.sin(v.y * 6.3 + 0.7) * Math.sin(v.z * 5.7 + 2.1)
+      + 0.5 * Math.sin(v.x * 13.7 + v.y * 11.3 + v.z * 9.1);
+    v.multiplyScalar(1 + 0.04 * n);
+    p.setXYZ(i, v.x, v.y, v.z);
+  }
+  g.computeVertexNormals();
+  return g;
 }
 
 export class Game {
@@ -247,7 +276,7 @@ export class Game {
     this.ball = new THREE.Group();
     this.ball.position.set(start[0], this.r, start[1]);
     this.core = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 28, 18),
+      lumpySphere(),
       new THREE.MeshLambertMaterial({ map: ballTexture() }),
     );
     this.core.castShadow = true;
@@ -281,17 +310,9 @@ export class Game {
     const c = this.ball.position;
     const mesh = b.mesh;
     this.world.group.remove(mesh);
-    const dir = new THREE.Vector3(b.x - c.x, Math.min(b.h / 2, c.y) - c.y, b.z - c.z).normalize();
-    const inv = this.ball.quaternion.clone().invert();
-    mesh.userData.dir = dir.applyQuaternion(inv);
-    // 건물은 공보다 크게 삐져나와 화면을 가리지 않도록 조금 줄여서 깊이 박는다
-    mesh.userData.depth = 0.6 + this.rand() * 0.15;
-    mesh.userData.pick = b.pick;
-    mesh.position.copy(mesh.userData.dir).multiplyScalar(this.drawR * mesh.userData.depth);
-    mesh.quaternion.copy(inv);
-    mesh.scale.setScalar(0.7);
-    this.ball.add(mesh);
-    this.stuck.push(mesh);
+    // 건물은 공보다 크게 삐져나와 화면을 가리지 않도록 조금 줄여서 붙인다
+    mesh.scale.setScalar(0.8);
+    this.stickToBall(mesh, new THREE.Vector3(b.x - c.x, Math.min(b.h / 2, c.y) - c.y, b.z - c.z), 0, b.pick * 0.8);
 
     this.diameter = Math.cbrt(this.diameter ** 3 + BUILDING_GROWTH * b.pick ** 3);
     this.r = this.diameter / 2;
@@ -309,21 +330,9 @@ export class Game {
 
     // 공에 붙이기: 공 중심에서 물체 방향으로, 공의 회전을 거꾸로 적용한 로컬 좌표
     const c = this.ball.position;
-    const dir = new THREE.Vector3(it.x - c.x, Math.min(it.type.h / 2, c.y) - c.y, it.z - c.z);
-    if (dir.lengthSq() < 1e-8) dir.set(0, -1, 0);
-    dir.normalize();
-    const inv = this.ball.quaternion.clone().invert();
-    const local = dir.applyQuaternion(inv);
     const mesh = new THREE.Mesh(it.type.geom, it.mesh.material);
-    // 공이 커져도 표면에 붙어 있도록 방향과 깊이만 기억해 둔다
-    mesh.userData.dir = local;
-    mesh.userData.depth = 0.84 + this.rand() * 0.1;
-    mesh.position.copy(local).multiplyScalar(this.drawR * mesh.userData.depth);
-    mesh.quaternion.copy(inv).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), it.rot));
     mesh.castShadow = it.type.h > 0.05;
-    mesh.userData.pick = it.type.pick;
-    this.ball.add(mesh);
-    this.stuck.push(mesh);
+    this.stickToBall(mesh, new THREE.Vector3(it.x - c.x, Math.min(it.type.h / 2, c.y) - c.y, it.z - c.z), it.rot, it.type.pick);
 
     // 성장
     this.diameter = Math.cbrt(this.diameter ** 3 + GROWTH * it.type.pick ** 3);
@@ -335,12 +344,32 @@ export class Game {
     this.checkUnlocks();
   }
 
-  // 공에 비해 너무 작아진 물건부터 떼어내서(공 속에 묻힌 셈) 개수를 유지
+  // 닿은 방향(공 중심 기준, 월드 좌표)으로 지금 표면에 붙인다.
+  // 붙은 자리는 그대로 두고, 공 속(core)이 커지면서 오래된 것부터 천천히 묻힌다.
+  stickToBall(mesh, worldDir, rot, size) {
+    if (worldDir.lengthSq() < 1e-8) worldDir.set(0, -1, 0);
+    const inv = this.ball.quaternion.clone().invert();
+    const dir = worldDir.normalize().applyQuaternion(inv); // 공 로컬 방향
+    mesh.position.copy(dir).multiplyScalar(this.drawR * (0.8 + this.rand() * 0.12));
+    if (this.rand() < 0.5) {
+      // 절반은 공 바깥쪽으로 꽂힌 듯이 (위쪽 축을 바깥 방향으로)
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)
+        .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.rand() * Math.PI * 2));
+    } else {
+      // 나머지는 바닥에 있던 모양 그대로 굴러가며 붙은 듯이
+      mesh.quaternion.copy(inv).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot));
+    }
+    // 이 물건의 가장 바깥 끝이 공 중심에서 얼마나 떨어져 있는지 (묻혔는지 판단용)
+    mesh.userData.outer = mesh.position.length() + size * 0.5;
+    this.ball.add(mesh);
+    this.stuck.push(mesh);
+  }
+
+  // 공 속에 완전히 묻혀 안 보이게 된 것은 지워서 성능 유지
   trimStuck() {
-    if (this.stuck.length <= MAX_STUCK) return;
-    const limit = this.diameter * 0.12;
+    const core = this.r * CORE_RATIO;
     this.stuck = this.stuck.filter((m) => {
-      const keep = m.userData.pick > limit;
+      const keep = m.userData.outer > core * 0.98;
       if (!keep) this.ball.remove(m);
       return keep;
     });
@@ -427,8 +456,8 @@ export class Game {
 
     // 보이는 반지름은 부드럽게 커진다
     this.drawR += (this.r - this.drawR) * (1 - Math.exp(-rawDt * 6));
-    this.core.scale.setScalar(this.drawR * 0.93);
-    for (const m of this.stuck) m.position.copy(m.userData.dir).multiplyScalar(this.drawR * m.userData.depth);
+    // 처음엔 맨 공이 보이고, 물건이 붙을수록 속은 작아져 물건 층이 겉을 덮는다
+    this.core.scale.setScalar(this.drawR * (CORE_RATIO + (0.95 - CORE_RATIO) * Math.exp(-this.eaten / 15)));
 
     const pos = this.ball.position;
     // 작을 때 좁은 틈에 들어갔다가 그 안에서 커져 양쪽 벽에 끼면
@@ -567,10 +596,10 @@ export class Game {
     let diff = this.heading - this.camYaw;
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
     this.camYaw += diff * (1 - Math.exp(-dt * 5));
-    // 공 뒤에서 미는 캐릭터까지 화면에 들어오도록
+    // 처음엔 공 뒤에서 미는 캐릭터까지 보이고, 공이 커지면 캐릭터는 공에 가려진다
     const r = this.drawR;
-    const dist = r * 6 + 0.4;
-    const height = r * 4.4 + 0.3;
+    const dist = r * 4.6 + 0.4;
+    const height = r * 2.6 + 0.22;
     const c = this.ball.position;
     const cam = this.camera.position;
     const want = new THREE.Vector3(c.x - Math.sin(this.camYaw) * dist, height, c.z - Math.cos(this.camYaw) * dist);

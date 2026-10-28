@@ -1,5 +1,5 @@
 // 공을 미는 캐릭터: 통통한 5등신 블록 인형 (검은 반팔티, 형광 연두 반바지)
-// 키 1 기준으로 만들고, 공 크기에 맞춰 통째로 키운다.
+// 키 1 기준으로 만들고 HEIGHT 만큼 키운다.
 import * as THREE from '../../vendor/three.module.min.js';
 
 const SKIN = '#f2c49b';
@@ -7,6 +7,7 @@ const SHIRT = '#1b1b1f';
 const SHORTS = '#9dff2f';
 const HAIR = '#141414';
 const SHOE = '#2b2b2b';
+const HEIGHT = 0.16; // m
 
 function box(w, h, d, color, x = 0, y = 0, z = 0) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }));
@@ -82,10 +83,14 @@ export class Player {
 
   // ballPos: 공 중심, r: 공 반지름, heading: 진행 방향, speed: m/s
   update(dt, ballPos, r, heading, speed) {
-    const height = Math.max(0.1, r * 2 * 0.9);
+    // 키는 시작 공보다 조금 큰 크기로 고정. 공이 커지면 공 밑에 가려진다.
+    const height = HEIGHT;
     this.group.scale.setScalar(height);
-    // 공 바로 뒤에 서서 두 팔로 민다
-    const back = r + height * 0.2;
+    // 손 높이에서 공 표면까지의 수평 거리만큼 뒤에 선다
+    const hand = height * 0.6;
+    const y = Math.min(hand, r * 2);
+    const surface = Math.sqrt(Math.max(0, r * r - (r - y) ** 2));
+    const back = surface + height * 0.22;
     this.group.position.set(ballPos.x - Math.sin(heading) * back, 0, ballPos.z - Math.cos(heading) * back);
     this.group.rotation.y = heading;
 
