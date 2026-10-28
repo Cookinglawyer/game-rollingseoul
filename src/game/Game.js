@@ -3,13 +3,14 @@ import { PROP_TYPES, canPick } from './props.js';
 import { World, loadMap, emptyMap } from './world.js';
 import { Input } from './input.js';
 import { initAudio, popSound, bonkSound, fanfare, tick } from './audio.js';
+import { Player } from './player.js';
 
-// 흡수할 때 부피가 얼마나 늘어나는지 (밸런스: tools/sim 참고)
-const GROWTH = 1.3;
+// 흡수할 때 부피가 얼마나 늘어나는지: 지름³ += GROWTH × 크기³
+const GROWTH = 2.6;
+const BUILDING_GROWTH = 0.8; // 건물은 덩치가 커서 따로 낮춘다
 const MAX_STUCK = 280;
-// 벽과의 충돌에 쓰는 공 반지름 상한. 물건은 이 반지름으로 갈 수 있는 곳에만 놓이므로
-// 공이 아무리 커져도 남은 물건에 닿을 수 있다. (더 커지면 벽에 살짝 파고든다)
-const WALL_R = 4.5;
+// 물건은 반지름 이 정도 공이 시작점에서 갈 수 있는 곳에만 놓는다
+const PLACE_R = 4.5;
 const SKY = '#bfe3ff';
 
 function rng(seed) {
@@ -25,7 +26,8 @@ function rng(seed) {
 }
 
 export function formatSize(d) {
-  return d < 1 ? `${(d * 100).toFixed(1)}cm` : `${d.toFixed(2)}m`;
+  if (d < 1) return `${(d * 100).toFixed(1)}cm`;
+  return `${d.toFixed(d < 10 ? 2 : d < 100 ? 1 : 0)}m`;
 }
 
 function ballTexture() {
@@ -71,6 +73,8 @@ export class Game {
     this.setupScene();
     this.placeProps();
     this.setupBall();
+    this.player = new Player();
+    this.scene.add(this.player.group);
     this.setupHud();
 
     this.input = new Input(this.$('#touch-layer'), this.$('#stick'), this.$('#stick-knob'));
@@ -121,11 +125,8 @@ export class Game {
     const world = this.world;
     const [sx, sz] = world.start;
     const [x0, z0, x1, z1] = world.play;
-    const maxD = Math.max(...[[x0, z0], [x1, z0], [x0, z1], [x1, z1]].map(([x, z]) => Math.hypot(x - sx, z - sz)));
-    // 등급별 시작점으로부터의 거리 범위 [최소 비율, 최대 비율, 최대 거리 하한(m)]
-    const TIER_RANGE = [
-      [0, 0.005, 2.2], [0.003, 0.02, 6], [0.015, 0.1, 25], [0.06, 0.4, 60], [0.12, 0.8, 0], [0.25, 0.85, 0],
-    ];
+    // 등급별 시작점으로부터의 거리 범위(m): 작은 것일수록 시작점 가까이
+    const TIER_RANGE = [[0, 2.5], [1, 7], [4, 25], [10, 60], [20, 140], [40, 220]];
     const R = this.rand;
 
     // 간격 확인용 해시
@@ -156,9 +157,9 @@ export class Game {
       const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
       roadSegs.push({ a, b, w: r.w, len, acc: (roadLen += len) });
     }
-    // 시작점에서 다 큰 공(반지름 WALL_R)으로 갈 수 있는 칸에만 배치
+    // 시작점에서 큰 공(반지름 PLACE_R)으로 갈 수 있는 칸에만 배치
     world.buildNav(2);
-    const reach = world.flood(sx, sz, WALL_R);
+    const reach = world.flood(sx, sz, PLACE_R);
     const reachable = (this.reachable = (x, z) => {
       const i = world.navIndex(x, z);
       return i >= 0 && reach[i] >= 0;
@@ -172,8 +173,7 @@ export class Game {
 
     for (const type of PROP_TYPES) {
       type.geom ||= type.build();
-      const [f0, f1, minMax] = TIER_RANGE[type.tier];
-      const rMin = f0 * maxD, rMax = Math.max(f1 * maxD, minMax);
+      const [rMin, rMax] = TIER_RANGE[type.tier];
       const placed = [];
       let treeIdx = 0;
       const treePool = type.place === 'tree' ? mapTrees.slice().sort(() => R() - 0.5) : [];
@@ -225,8 +225,6 @@ export class Game {
       this.meshes.push(mesh);
       this.items.push(...placed);
     }
-    this.total = this.items.length;
-    this.remaining = this.total;
     this.movers = this.items.filter((it) => it.type.move);
   }
 
@@ -261,13 +259,52 @@ export class Game {
     this.heading = Math.PI; // 북쪽(-z)을 향해 시작
     this.camYaw = this.heading;
     this.eaten = 0;
+    this.squeeze = 1; // 벽 사이에 끼었을 때 충돌 반지름을 잠깐 줄이는 비율
+    this.goal = this.stage.goalSize;
     this.pickable = new Set(PROP_TYPES.filter((t) => canPick(t, this.diameter)).map((t) => t.name));
+    this.bTotal = this.world.buildings.filter((b) => b.inPlay).length;
+    this.bEaten = 0;
+    this.buildingsUnlocked = false;
+    this.announced = new Set();
+  }
+
+  canEatBuilding(b) {
+    return b.pick < this.diameter * 0.8;
+  }
+
+  // 건물 메시를 통째로 공에 옮겨 붙인다
+  absorbBuilding(b) {
+    b.alive = false;
+    this.world.refreshNav(b);
+    if (b.inPlay) this.bEaten++;
+    this.eaten++;
+    const c = this.ball.position;
+    const mesh = b.mesh;
+    this.world.group.remove(mesh);
+    const dir = new THREE.Vector3(b.x - c.x, Math.min(b.h / 2, c.y) - c.y, b.z - c.z).normalize();
+    const inv = this.ball.quaternion.clone().invert();
+    mesh.userData.dir = dir.applyQuaternion(inv);
+    // 건물은 공보다 크게 삐져나와 화면을 가리지 않도록 조금 줄여서 깊이 박는다
+    mesh.userData.depth = 0.6 + this.rand() * 0.15;
+    mesh.userData.pick = b.pick;
+    mesh.position.copy(mesh.userData.dir).multiplyScalar(this.drawR * mesh.userData.depth);
+    mesh.quaternion.copy(inv);
+    mesh.scale.setScalar(0.7);
+    this.ball.add(mesh);
+    this.stuck.push(mesh);
+
+    this.diameter = Math.cbrt(this.diameter ** 3 + BUILDING_GROWTH * b.pick ** 3);
+    this.r = this.diameter / 2;
+    popSound(0.9);
+    bonkSound();
+    this.feed(`+ ${b.name || '건물'}`);
+    this.trimStuck();
+    this.checkUnlocks();
   }
 
   absorb(it) {
     it.alive = false;
     this.setInstance(it, 0);
-    this.remaining--;
     this.eaten++;
 
     // 공에 붙이기: 공 중심에서 물체 방향으로, 공의 회전을 거꾸로 적용한 로컬 좌표
@@ -318,6 +355,17 @@ export class Game {
         newly.push(t.name);
       }
     }
+    // 건물: 처음 먹을 수 있게 됐을 때, 그리고 이름난 큰 건물이 먹을 수 있게 됐을 때 알림
+    if (!this.buildingsUnlocked && this.world.buildings.some((b) => b.alive && b.inPlay && this.canEatBuilding(b))) {
+      this.buildingsUnlocked = true;
+      newly.push('건물');
+    }
+    for (const b of this.world.buildings) {
+      if (b.alive && b.name && b.pick > 45 && !this.announced.has(b.name) && this.canEatBuilding(b)) {
+        this.announced.add(b.name);
+        if (newly.length < 3) newly.push(b.name);
+      }
+    }
     if (newly.length) this.banner(`이제 ${[...new Set(newly)].join(', ')}도 먹을 수 있다!`);
   }
 
@@ -332,6 +380,7 @@ export class Game {
   }
 
   update(dt) {
+    if (!this.running) return; // 결과 화면이 뜨면 멈춤
     this.input.update();
     if (this.countdown > 0) {
       const before = Math.ceil(this.countdown);
@@ -357,16 +406,18 @@ export class Game {
     this.moveBall(playing ? dt : 0, dt);
     this.updateMovers(dt);
     this.collide();
+    this.player.update(dt, this.ball.position, this.drawR, this.heading, Math.hypot(this.vel.x, this.vel.z));
     this.updateCamera(dt);
     this.updateHud(dt);
 
-    if (this.running && this.remaining === 0) this.finish(true);
+    if (this.running && this.diameter >= this.goal) this.finish(true);
     else if (this.running && this.timeLeft <= 0) this.finish(false);
   }
 
   moveBall(dt, rawDt) {
     const inp = this.input;
-    const speed = 1.5 + 3.0 * this.diameter;
+    // 클수록 빨라지지만, 크기에 비하면 점점 느려진다 (100m 공 ≈ 150m/s)
+    const speed = 1.5 + 3.0 * this.diameter ** 0.85;
     this.heading += inp.turn * 2.1 * dt;
     const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
     const tx = fx * inp.forward * speed, tz = fz * inp.forward * speed;
@@ -380,17 +431,25 @@ export class Game {
     for (const m of this.stuck) m.position.copy(m.userData.dir).multiplyScalar(this.drawR * m.userData.depth);
 
     const pos = this.ball.position;
-    // 작을 때 좁은 골목에 들어갔다가 그 안에서 커져도 갇히지 않도록,
-    // 벽 충돌 반지름을 지금 위치의 여유 폭에 맞춰 줄인다
-    let wallR = Math.min(this.drawR, WALL_R);
-    const ci = this.world.navIndex(pos.x, pos.z);
-    if (ci >= 0 && this.world.nav.clear[ci] < wallR) wallR = Math.max(0.3, this.world.nav.clear[ci]);
+    // 작을 때 좁은 틈에 들어갔다가 그 안에서 커져 양쪽 벽에 끼면
+    // 충돌 반지름을 잠깐 줄여 빠져나올 수 있게 한다
+    // 공이 커지면 벽과 부딪히는 몸통은 겉보기보다 작게 (최대 60%) 해서 골목에도 들어갈 수 있게 한다.
+    // 먹을 수 있는지는 겉보기 크기로 닿았는지로 판단.
+    const soft = 1 - 0.4 * Math.min(1, Math.max(0, (this.diameter - 2) / 10));
+    const wallR = this.drawR * this.squeeze * soft;
+    const eat = (b) => {
+      if (this.countdown > 0 || !this.canEatBuilding(b)) return false;
+      this.absorbBuilding(b);
+      return true;
+    };
+    let trapped = false;
     const stepLen = Math.hypot(this.vel.x, this.vel.z) * rawDt;
     const steps = Math.max(1, Math.ceil(stepLen / (this.r * 0.5)));
     for (let s = 0; s < steps; s++) {
       pos.x += (this.vel.x * rawDt) / steps;
       pos.z += (this.vel.z * rawDt) / steps;
-      const hit = this.world.resolveCircle(pos, wallR);
+      const hit = this.world.resolveCircle(pos, wallR, eat, this.drawR);
+      trapped ||= this.world.trapped;
       if (hit) {
         const vn = this.vel.x * hit.x + this.vel.z * hit.z;
         if (vn < 0) {
@@ -400,6 +459,7 @@ export class Game {
         }
       }
     }
+    this.squeeze = trapped ? Math.max(0.2, this.squeeze * 0.9) : Math.min(1, this.squeeze + rawDt * 0.3);
     pos.y = this.drawR;
 
     // 구르기
@@ -507,9 +567,10 @@ export class Game {
     let diff = this.heading - this.camYaw;
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
     this.camYaw += diff * (1 - Math.exp(-dt * 5));
+    // 공 뒤에서 미는 캐릭터까지 화면에 들어오도록
     const r = this.drawR;
-    const dist = r * 4.2 + 0.35;
-    const height = r * 2.0 + 0.18;
+    const dist = r * 6 + 0.4;
+    const height = r * 4.4 + 0.3;
     const c = this.ball.position;
     const cam = this.camera.position;
     const want = new THREE.Vector3(c.x - Math.sin(this.camYaw) * dist, height, c.z - Math.cos(this.camYaw) * dist);
@@ -522,10 +583,10 @@ export class Game {
     this.camera.near = Math.max(0.005, r * 0.08);
     this.camera.far = 3000;
     this.camera.updateProjectionMatrix();
-    this.camera.lookAt(c.x, c.y + r * 0.6, c.z);
+    this.camera.lookAt(c.x, c.y + r * 0.4, c.z);
 
     // 그림자는 공 주변만 고해상도로
-    const ext = Math.max(4, r * 30);
+    const ext = Math.max(4, r * 14);
     const sh = this.sun.shadow.camera;
     sh.left = sh.bottom = -ext;
     sh.right = sh.top = ext;
@@ -546,6 +607,7 @@ export class Game {
   setupHud() {
     this.$('#hud-stage').textContent = this.stage.name;
     this.$('#hud-placeholder').hidden = !this.mapData.placeholder;
+    this.$('#hud-goal').textContent = formatSize(this.goal);
     this.$('#countdown').hidden = false;
     this.$('#feed').innerHTML = '';
     this.$('#banner').hidden = true;
@@ -568,7 +630,7 @@ export class Game {
     g.fillStyle = '#efe6d6';
     const [ax, ay] = toPx(x0, z0), [bx, by] = toPx(x1, z1);
     g.fillRect(ax, ay, bx - ax, by - ay);
-    this.world.drawMinimap(g, toPx);
+    this.world.drawMinimapRoads(g, toPx);
     this.minimapBase = base;
     this._hudT = 0;
   }
@@ -579,14 +641,17 @@ export class Game {
     const timer = this.$('#hud-time');
     timer.textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
     timer.classList.toggle('hurry', this.timeLeft <= 30);
-    this.$('#hud-left').textContent = this.remaining.toLocaleString('ko-KR');
-    this.$('#hud-bar').style.width = `${(1 - this.remaining / this.total) * 100}%`;
+    // 목표까지 진행률은 로그 비율 (10cm→1m와 10m→100m가 같은 한 걸음)
+    const start = this.stage.startSize;
+    const prog = Math.max(0, Math.min(1, Math.log(this.diameter / start) / Math.log(this.goal / start)));
+    this.$('#hud-progress').textContent = `${Math.floor(prog * 100)}%`;
+    this.$('#hud-bar').style.width = `${prog * 100}%`;
+    this.$('#hud-bld').textContent = `먹은 건물 ${this.bEaten} / ${this.bTotal}`;
 
     this._hudT -= dt;
     if (this._hudT <= 0) {
       this._hudT = 0.15;
       this.drawMinimap();
-      this.updateArrow();
     }
   }
 
@@ -595,11 +660,13 @@ export class Game {
     g.clearRect(0, 0, this.minimap.width, this.minimap.height);
     g.drawImage(this.minimapBase, 0, 0);
     const dpr = this.minimap.width / 150;
+    // 분홍 = 지금 먹을 수 있는 건물·물건
+    this.world.drawMinimapBuildings(g, this.toPx, (b) => this.canEatBuilding(b));
+    g.fillStyle = '#ff3d7f';
+    const s = 1.8 * dpr;
     for (const it of this.items) {
-      if (!it.alive) continue;
+      if (!it.alive || !canPick(it.type, this.diameter)) continue;
       const [px, py] = this.toPx(it.x, it.z);
-      g.fillStyle = canPick(it.type, this.diameter) ? '#ff3d7f' : 'rgba(80,80,90,0.45)';
-      const s = canPick(it.type, this.diameter) ? 2.2 * dpr : 1.4 * dpr;
       g.fillRect(px - s / 2, py - s / 2, s, s);
     }
     const c = this.ball.position;
@@ -618,24 +685,6 @@ export class Game {
     g.fill();
     g.stroke();
     g.restore();
-  }
-
-  // 얼마 안 남았을 때 가장 가까운 먹잇감 방향 표시
-  updateArrow() {
-    const arrow = this.$('#arrow');
-    if (this.remaining > 15 || this.remaining === 0) { arrow.hidden = true; return; }
-    const c = this.ball.position;
-    let best = null, bd = Infinity;
-    for (const it of this.items) {
-      if (!it.alive) continue;
-      const d = Math.hypot(it.x - c.x, it.z - c.z);
-      if (d < bd) { bd = d; best = it; }
-    }
-    if (!best) return;
-    const ang = Math.atan2(best.x - c.x, best.z - c.z) - this.camYaw;
-    arrow.hidden = false;
-    arrow.style.transform = `translate(-50%, -50%) rotate(${-ang}rad)`;
-    this.$('#arrow-dist').textContent = `${Math.round(bd)}m`;
   }
 
   feed(text, warn = false) {
@@ -673,8 +722,10 @@ export class Game {
     this.onEnd({
       win,
       size: this.r * 2,
+      goal: this.goal,
       eaten: this.eaten,
-      total: this.total,
+      buildings: this.bEaten,
+      buildingsTotal: this.bTotal,
       timeUsed: this.elapsed,
       timeLeft: this.timeLeft,
     });

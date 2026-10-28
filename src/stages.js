@@ -1,6 +1,6 @@
 // 스테이지 정의
 // bbox: [서쪽 경도, 남쪽 위도, 동쪽 경도, 북쪽 위도] — 나중에 지도 데이터를 잘라올 범위
-// startSize: 시작 공 지름(m), goalSize: 전부 먹었을 때 예상 크기(m)
+// startSize: 시작 공 지름(m), goalSize: 이 크기가 되면 클리어(m)
 // map: tools/fetch_osm.py 로 만든 지도 데이터 (없으면 아직 준비 중)
 // timeLimit: 초
 export const STAGES = [
@@ -9,12 +9,12 @@ export const STAGES = [
     no: 1,
     name: '광화문 광장',
     district: '종로구',
-    desc: '동전, 캔, 비둘기부터 시작! 세종대왕 동상 앞에서 굴리기 시작해 광장을 싹쓸이하자.',
+    desc: '세종대왕 동상 앞 10cm 공에서 시작! 동전부터 빌딩까지 말아서 150m를 만들자.',
     map: 'data/gwanghwamun.json',
     startSize: 0.1,
-    goalSize: 14,
-    timeLimit: 480,
-    targets: ['동전', '캔', '비둘기', '따릉이', '시민', '서울 택시', '은행나무', '간선버스'],
+    goalSize: 150,
+    timeLimit: 540,
+    targets: ['동전', '비둘기', '따릉이', '서울 택시', '광화문', '세종문화회관', '교보생명빌딩'],
   },
   {
     id: 'hongdae',

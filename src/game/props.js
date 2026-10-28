@@ -253,6 +253,42 @@ function bus() {
   ]);
 }
 
+function phoneBooth() {
+  return merge([
+    part(box(1, 2.3, 1), '#d7263d', { y: 1.15 }),
+    part(box(0.8, 1.5, 1.02), '#cfe8ff', { y: 1.3 }),
+    part(box(1.05, 0.12, 1.05), '#a31c2d', { y: 2.36 }),
+  ]);
+}
+function kiosk() {
+  // 가판대
+  return merge([
+    part(box(2.4, 2.2, 1.6), '#2a6fdb', { y: 1.1 }),
+    part(box(2.6, 0.12, 2.2), '#ffd23d', { y: 2.3, z: 0.25 }),
+    part(box(2.2, 0.9, 0.05), '#ffffff', { y: 1.3, z: 0.81 }),
+  ]);
+}
+function busStop() {
+  return merge([
+    part(box(4.5, 0.12, 1.8), '#2b3a55', { y: 2.6 }),
+    part(box(0.12, 2.6, 0.12), '#555555', { x: 2.1, y: 1.3, z: -0.7 }),
+    part(box(0.12, 2.6, 0.12), '#555555', { x: -2.1, y: 1.3, z: -0.7 }),
+    part(box(4.2, 1.9, 0.05), '#bfe3ff', { y: 1.4, z: -0.8 }),
+    part(box(3, 0.08, 0.45), '#b07a46', { y: 0.5, z: -0.5 }),
+    part(box(0.9, 2.2, 0.1), '#1f5fbf', { x: 2.5, y: 1.1, z: -0.7 }),
+  ]);
+}
+function truck() {
+  const wheels = [[-1, -1.6], [1, -1.6], [-1, 1.8], [1, 1.8]].map(([a, b]) =>
+    part(cyl(0.45, 0.45, 0.3, 10), '#1d1d1d', { x: a * 1.0, y: 0.45, z: b, rz: Math.PI / 2 }));
+  return merge([
+    ...wheels,
+    part(box(2.2, 2.1, 1.8), '#f4f4f4', { y: 1.5, z: 2.4 }),
+    part(box(2.1, 0.8, 0.05), '#22303f', { y: 2.0, z: 3.31 }),
+    part(box(2.3, 2.6, 4.8), '#2fae6b', { y: 2.0, z: -0.9 }),
+  ]);
+}
+
 // ---------- 타입 목록 ----------
 // tier: 시작점에서 얼마나 떨어진 곳에 놓이는지 (0이 가장 가까움)
 // count: 기본 개수 (스테이지 면적에 맞춰 조정됨)
@@ -286,10 +322,14 @@ export const PROP_TYPES = [
   P({ id: 'person-b', name: '관광객', pick: 1.6, foot: 0.25, h: 1.7, tier: 3, count: 10, build: () => person('#4fc3f7', '#5a4632'), move: 'walk', speed: 0.9 }),
   P({ id: 'person-c', name: '회사원', pick: 1.6, foot: 0.25, h: 1.7, tier: 3, count: 10, build: () => person('#ffffff', '#1f1f1f'), move: 'walk', speed: 1.3 }),
   P({ id: 'scooter', name: '오토바이', pick: 1.8, foot: 0.5, h: 1.1, tier: 3, count: 5, build: scooter }),
+  P({ id: 'phone-booth', name: '공중전화', pick: 2.2, foot: 0.5, h: 2.4, tier: 3, count: 8, build: phoneBooth }),
+  P({ id: 'kiosk', name: '가판대', pick: 2.8, foot: 1.0, h: 2.4, tier: 4, count: 10, build: kiosk }),
+  P({ id: 'bus-stop', name: '버스정류장', pick: 4.5, foot: 1.6, h: 2.7, tier: 4, count: 10, build: busStop }),
   P({ id: 'car-w', name: '승용차', pick: 3.0, foot: 1.2, h: 1.6, tier: 4, count: 6, place: 'road', build: () => car('#f4f4f4') }),
   P({ id: 'car-k', name: '승용차', pick: 3.0, foot: 1.2, h: 1.6, tier: 4, count: 5, place: 'road', build: () => car('#2b2b33') }),
   P({ id: 'taxi', name: '서울 택시', pick: 3.0, foot: 1.2, h: 1.8, tier: 4, count: 6, place: 'road', build: taxi }),
   P({ id: 'tree', name: '은행나무', pick: 3.6, foot: 0.35, h: 6.8, tier: 4, count: 14, place: 'tree', build: ginkgo }),
+  P({ id: 'truck', name: '트럭', pick: 5.0, foot: 1.8, h: 3.3, tier: 5, count: 6, place: 'road', build: truck }),
   P({ id: 'bus', name: '간선버스', pick: 6.0, foot: 2.5, h: 3.1, tier: 5, count: 3, place: 'road', build: bus }),
 ];
 

@@ -45,7 +45,7 @@
       <p class="brief-desc" id="brief-desc"></p>
       <dl class="brief-stats">
         <div><dt>시작 크기</dt><dd id="brief-start"></dd></div>
-        <div><dt>클리어 조건</dt><dd>전부 먹기</dd></div>
+        <div><dt>목표 크기</dt><dd id="brief-goal"></dd></div>
         <div><dt>제한 시간</dt><dd id="brief-time"></dd></div>
       </dl>
       <p class="brief-targets" id="brief-targets"></p>
@@ -75,16 +75,16 @@
       </div>
       <div class="hud-right">
         <button id="btn-pause" class="btn-pause" aria-label="일시정지">II</button>
-        <span class="hud-label">남은 물체</span>
-        <span id="hud-left">0</span>
+        <span class="hud-label">목표 <b id="hud-goal"></b></span>
+        <span id="hud-progress">0%</span>
         <div class="hud-bar"><div id="hud-bar"></div></div>
+        <span id="hud-bld" class="hud-sub"></span>
       </div>
     </div>
     <p id="hud-placeholder" class="hud-placeholder" hidden>지도 데이터 준비 중 · 지금은 건물이 없는 테스트용 빈 광장입니다</p>
     <div id="feed" class="feed"></div>
     <div id="banner" class="banner" hidden></div>
     <div id="countdown" class="countdown" hidden>READY</div>
-    <div id="arrow" class="arrow" hidden><span>▲</span><em id="arrow-dist"></em></div>
     <canvas id="minimap" class="minimap"></canvas>
     <p class="attribution">지도 데이터 © OpenStreetMap contributors</p>
 
@@ -105,7 +105,7 @@
         <h2 id="result-title"></h2>
         <dl class="brief-stats">
           <div><dt>최종 크기</dt><dd id="result-size"></dd></div>
-          <div><dt>먹은 물체</dt><dd id="result-eaten"></dd></div>
+          <div><dt>먹은 건물</dt><dd id="result-eaten"></dd></div>
           <div><dt>걸린 시간</dt><dd id="result-time"></dd></div>
         </dl>
         <p class="result-note" id="result-note"></p>

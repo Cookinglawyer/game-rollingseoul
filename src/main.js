@@ -68,7 +68,7 @@ function renderStages() {
       <p class="desc">${stage.desc}</p>
       <div class="meta">
         <span>⏱ ${formatTime(stage.timeLimit)}</span>
-        <span>${stage.map ? '플레이 가능' : '준비 중'}</span>
+        <span>🎯 ${stage.map ? formatSize(stage.goalSize) : '준비 중'}</span>
         <span class="best">${record ? `★ ${formatBall(record.size)}` : ''}</span>
       </div>`;
     card.addEventListener('click', () => openBriefing(stage));
@@ -86,6 +86,7 @@ function openBriefing(stage) {
   document.getElementById('brief-district').textContent = stage.district;
   document.getElementById('brief-desc').textContent = stage.desc;
   document.getElementById('brief-start').textContent = formatSize(stage.startSize);
+  document.getElementById('brief-goal').textContent = formatSize(stage.goalSize);
   document.getElementById('brief-time').textContent = formatTime(stage.timeLimit);
   document.getElementById('brief-targets').textContent = `먹잇감: ${stage.targets.join(' · ')}`;
   document.getElementById('toast').textContent = '';
@@ -138,9 +139,9 @@ function leaveGame() {
 function showResult(stage, res) {
   const t = Math.round(res.timeUsed);
   $g('result-kicker').textContent = stage.name;
-  $g('result-title').textContent = res.win ? '싹 다 먹었다!' : '시간 초과';
+  $g('result-title').textContent = res.win ? '목표 달성!' : '시간 초과';
   $g('result-size').textContent = formatBall(res.size);
-  $g('result-eaten').textContent = `${res.eaten} / ${res.total}`;
+  $g('result-eaten').textContent = `${res.buildings} / ${res.buildingsTotal}`;
   $g('result-time').textContent = formatTime(t);
   if (res.win) {
     const prev = save.cleared[stage.id];
@@ -150,7 +151,7 @@ function showResult(stage, res) {
     const next = STAGES[STAGES.indexOf(stage) + 1];
     $g('result-note').textContent = (best && prev ? '최고 기록! ' : '') + (next ? `다음 스테이지 '${next.name}'이(가) 열렸어요.` : '');
   } else {
-    $g('result-note').textContent = `${res.total - res.eaten}개가 남았어요. 다시 도전!`;
+    $g('result-note').textContent = `목표 ${formatBall(res.goal)}까지 ${formatBall(res.goal - res.size)} 모자랐어요. 다시 도전!`;
   }
   $g('result').hidden = false;
 }
