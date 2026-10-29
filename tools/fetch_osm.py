@@ -50,6 +50,9 @@ def build_query(bbox):
   way["place"="square"]{b};
   way["man_made"="bridge"]{b};
   node["natural"="tree"]{b};
+  node["tourism"="artwork"]{b};
+  node["historic"~"memorial|monument"]{b};
+  way["historic"~"memorial|monument"]{b};
 );
 out body;
 >;
@@ -112,11 +115,15 @@ def convert(raw, region):
     nodes = {}
     ways = {}
     tree_nodes = []
+    points = []  # 이름 있는 동상·기념물 (랜드마크 위치 맞추기용)
     for el in raw['elements']:
         if el['type'] == 'node':
             nodes[el['id']] = (el['lon'], el['lat'])
             if el.get('tags', {}).get('natural') == 'tree':
                 tree_nodes.append((el['lon'], el['lat']))
+            t = el.get('tags', {})
+            if t.get('name') and (t.get('tourism') == 'artwork' or t.get('historic') in ('memorial', 'monument')):
+                points.append({'n': t['name'], 'p': proj(el['lon'], el['lat'])})
         elif el['type'] == 'way':
             ways[el['id']] = el
 
@@ -216,6 +223,7 @@ def convert(raw, region):
         'roads': roads,
         'areas': areas,
         'trees': trees,
+        'points': points,
     }
 
 

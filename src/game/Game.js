@@ -13,6 +13,7 @@ const MAX_STUCK = 700;
 const CORE_RATIO = 0.7;
 // 물건은 반지름 이 정도 공이 시작점에서 갈 수 있는 곳에만 놓는다
 const PLACE_R = 4.5;
+const TURN_RATE = 1.3; // 라디안/초
 const SKY = '#bfe3ff';
 
 function rng(seed) {
@@ -286,6 +287,7 @@ export class Game {
 
     this.vel = new THREE.Vector3();
     this.heading = Math.PI; // 북쪽(-z)을 향해 시작
+    this.turnVel = 0;
     this.camYaw = this.heading;
     this.eaten = 0;
     this.squeeze = 1; // 벽 사이에 끼었을 때 충돌 반지름을 잠깐 줄이는 비율
@@ -390,7 +392,7 @@ export class Game {
       newly.push('건물');
     }
     for (const b of this.world.buildings) {
-      if (b.alive && b.name && b.pick > 45 && !this.announced.has(b.name) && this.canEatBuilding(b)) {
+      if (b.alive && b.name && (b.pick > 45 || b.landmark) && !this.announced.has(b.name) && this.canEatBuilding(b)) {
         this.announced.add(b.name);
         if (newly.length < 3) newly.push(b.name);
       }
@@ -447,7 +449,9 @@ export class Game {
     const inp = this.input;
     // 클수록 빨라지지만, 크기에 비하면 점점 느려진다 (100m 공 ≈ 150m/s)
     const speed = 1.5 + 3.0 * this.diameter ** 0.85;
-    this.heading += inp.turn * 2.1 * dt;
+    // 회전: 최대 초당 1.3라디안(약 75°), 누르는 순간부터가 아니라 서서히 빨라진다
+    this.turnVel += (inp.turn * TURN_RATE - this.turnVel) * (1 - Math.exp(-rawDt * 5));
+    this.heading += this.turnVel * dt;
     const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
     const tx = fx * inp.forward * speed, tz = fz * inp.forward * speed;
     const k = 1 - Math.exp(-rawDt * (inp.forward ? 2.2 : 1.4));
@@ -595,7 +599,7 @@ export class Game {
   updateCamera(dt) {
     let diff = this.heading - this.camYaw;
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-    this.camYaw += diff * (1 - Math.exp(-dt * 5));
+    this.camYaw += diff * (1 - Math.exp(-dt * 4));
     // 처음엔 공 뒤에서 미는 캐릭터까지 보이고, 공이 커지면 캐릭터는 공에 가려진다
     const r = this.drawR;
     const dist = r * 4.6 + 0.4;

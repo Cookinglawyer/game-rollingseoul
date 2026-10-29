@@ -9,7 +9,7 @@ export const PICK_RATIO = 0.8;
 // ---------- 지오메트리 도우미 ----------
 const tmpColor = new THREE.Color();
 
-function part(geom, color, { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1 } = {}) {
+export function part(geom, color, { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1 } = {}) {
   const g = geom.index ? geom.toNonIndexed() : geom;
   const m = new THREE.Matrix4().compose(
     new THREE.Vector3(x, y, z),
@@ -30,7 +30,7 @@ function part(geom, color, { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1
   return g;
 }
 
-function merge(parts) {
+export function merge(parts) {
   let total = 0;
   for (const p of parts) total += p.attributes.position.count;
   const pos = new Float32Array(total * 3);

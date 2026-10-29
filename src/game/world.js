@@ -1,6 +1,7 @@
 // 지도 데이터(tools/fetch_osm.py 로 만든 JSON)를 3D 장면과 충돌 정보로 바꾼다.
 // 좌표계: x = 동쪽(m), z = 남쪽(m). 지도 JSON은 [동, 북] 이므로 z = -북.
 import * as THREE from '../../vendor/three.module.min.js';
+import { LANDMARK_BUILDINGS, STATUES } from './landmarks.js';
 
 const ROAD_COLOR = '#55565c';
 const AREA_COLORS = {
@@ -321,31 +322,73 @@ export class World {
     this.grid = new SegmentGrid(8);
     this.buildings = [];
     const material = new THREE.MeshLambertMaterial({ vertexColors: true, map: brickTexture() });
+    const landmarkMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
     (map.buildings || []).forEach((b, bi) => {
       if (b.p.length < 3) return;
+      const model = LANDMARK_BUILDINGS[b.n];
+      if (model) {
+        // 광화문·기념비전: 지도 외곽선에 맞춰 실제 모양 모델로
+        const f = footprintFrame(b.p);
+        const { geom, h } = model(f.L, f.D);
+        const mesh = new THREE.Mesh(geom, landmarkMaterial);
+        mesh.position.set(f.cx, 0, -f.cn);
+        mesh.rotation.y = f.rot;
+        this.addBuilding({ pts: b.p, h, name: b.n, mesh, x: f.cx, z: -f.cn, ext: Math.max(f.L, f.D), landmark: true });
+        return;
+      }
       const { mesh, cx, cz, ext } = buildingMesh(b, bi, material);
-      const pts = b.p;
-      const bb = [Infinity, Infinity, -Infinity, -Infinity];
-      for (const [x, n] of pts) {
-        bb[0] = Math.min(bb[0], x); bb[1] = Math.min(bb[1], n);
-        bb[2] = Math.max(bb[2], x); bb[3] = Math.max(bb[3], n);
-      }
-      const bld = {
-        idx: bi, name: b.n || '', pts, bb, h: b.h, x: cx, z: cz, mesh, alive: true,
-        low: b.h < 2, // 아주 낮은 구조물은 밟고 지나갈 수 있음
-        pick: Math.max(b.h, ext) * 0.65, // 바닥 길이·높이 중 큰 쪽
-        inPlay: this.inPlay(cx, cz),
-      };
-      this.buildings.push(bld);
-      this.group.add(mesh);
-      for (let i = 0; i < pts.length; i++) {
-        const a = pts[i], c = pts[(i + 1) % pts.length];
-        const seg = [a[0], -a[1], c[0], -c[1]];
-        seg.b = bld;
-        this.grid.add(seg);
-      }
+      this.addBuilding({ pts: b.p, h: b.h, name: b.n || '', mesh, x: cx, z: cz, ext });
     });
+
+    // 지도에 없는 동상들 (지도 데이터에 같은 이름 지점이 있으면 그 위치로)
+    if (map.origin) {
+      const placed = {};
+      for (const st of STATUES) {
+        let e, n;
+        if (st.follow) {
+          if (!placed[st.follow]) continue;
+          [e, n] = [placed[st.follow][0] + st.offset[0], placed[st.follow][1] + st.offset[1]];
+        } else {
+          const pt = (map.points || []).find((q) => q.n.includes(st.osm));
+          [e, n] = pt ? pt.p : this.project(st.lonlat);
+        }
+        placed[st.name] = [e, n];
+        const { geom, h, w, d } = st.build();
+        const mesh = new THREE.Mesh(geom, landmarkMaterial);
+        mesh.position.set(e, 0, -n);
+        const pts = [[e - w / 2, n - d / 2], [e + w / 2, n - d / 2], [e + w / 2, n + d / 2], [e - w / 2, n + d / 2]];
+        this.addBuilding({ pts, h, name: st.name, mesh, x: e, z: -n, ext: Math.max(w, d), landmark: true });
+      }
+    }
     this._segs = [];
+  }
+
+  addBuilding({ pts, h, name, mesh, x, z, ext, landmark = false }) {
+    const bb = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const [px, n] of pts) {
+      bb[0] = Math.min(bb[0], px); bb[1] = Math.min(bb[1], n);
+      bb[2] = Math.max(bb[2], px); bb[3] = Math.max(bb[3], n);
+    }
+    const bld = {
+      idx: this.buildings.length, name, pts, bb, h, x, z, mesh, alive: true, landmark,
+      low: h < 2, // 아주 낮은 구조물은 밟고 지나갈 수 있음
+      pick: Math.max(h, ext) * 0.65, // 바닥 길이·높이 중 큰 쪽
+      inPlay: this.inPlay(x, z),
+    };
+    this.buildings.push(bld);
+    this.group.add(mesh);
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], c = pts[(i + 1) % pts.length];
+      const seg = [a[0], -a[1], c[0], -c[1]];
+      seg.b = bld;
+      this.grid.add(seg);
+    }
+  }
+
+  // 경위도 → 이 지도의 [동, 북] 미터 (변환기와 같은 근사)
+  project([lon, lat]) {
+    const [lon0, lat0] = this.map.origin;
+    return [(lon - lon0) * 111320 * Math.cos((lat0 * Math.PI) / 180), (lat - lat0) * 110540];
   }
 
   // 건물 안쪽(여유 margin 포함)인지
@@ -507,6 +550,26 @@ export class World {
       ctx.fill();
     }
   }
+}
+
+// 외곽선의 가장 긴 변 방향을 길이 축으로 한 직사각형 틀 (랜드마크 모델 맞추기용)
+// rot: 모델의 x축을 길이 축에, 앞면(+z)을 남쪽에 가깝게 돌리는 y축 회전
+function footprintFrame(pts) {
+  let best = 0, ang = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (len > best) { best = len; ang = Math.atan2(b[1] - a[1], b[0] - a[0]); }
+  }
+  if (Math.cos(ang) < 0) ang += Math.PI;
+  const ux = Math.cos(ang), uy = Math.sin(ang);
+  let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+  for (const [x, n] of pts) {
+    const u = x * ux + n * uy, v = -x * uy + n * ux;
+    u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v);
+  }
+  const uc = (u0 + u1) / 2, vc = (v0 + v1) / 2;
+  return { L: u1 - u0, D: v1 - v0, cx: uc * ux - vc * uy, cn: uc * uy + vc * ux, rot: ang };
 }
 
 function closestOnSeg(x, z, s) {
