@@ -232,21 +232,23 @@ function taxi() {
   return merge([g, part(box(0.5, 0.18, 0.25), '#ffffff', { y: 1.65, z: -0.2 })]);
 }
 function ginkgo() {
-  // 서울시 나무 은행나무, 10월 말이라 노랗게
+  // 서울 가로수 은행나무 (10월 말, 노랗게 물드는 중): 둥근 잎 덩어리 몇 개
   return merge([
-    part(cyl(0.18, 0.25, 2.6, 7), '#7a5536', { y: 1.3 }),
-    part(cone(1.9, 3.6, 8), '#f2c230', { y: 3.6 }),
-    part(cone(1.5, 2.6, 8), '#f7d64a', { y: 5.0 }),
-    part(cone(0.9, 1.6, 8), '#ffe36b', { y: 6.1 }),
+    part(cyl(0.16, 0.24, 3.2, 7), '#5b4636', { y: 1.6 }),
+    part(cyl(0.07, 0.1, 1.6, 5), '#5b4636', { x: 0.4, y: 3.4, rz: -0.5 }),
+    part(new THREE.IcosahedronGeometry(1.7, 1), '#b9a845', { y: 4.4, sy: 1.25 }),
+    part(new THREE.IcosahedronGeometry(1.3, 1), '#c8b24e', { x: 0.9, y: 5.4, z: 0.3 }),
+    part(new THREE.IcosahedronGeometry(1.2, 1), '#a3a447', { x: -0.8, y: 5.2, z: -0.4 }),
+    part(new THREE.IcosahedronGeometry(1.0, 1), '#d1bc58', { y: 6.3 }),
   ]);
 }
-function bus() {
+function bus(color = '#1f5fbf') {
   // 서울 간선버스(파랑)
   const wheels = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) =>
     part(cyl(0.5, 0.5, 0.3, 10), '#1d1d1d', { x: a * 1.15, y: 0.5, z: b * 3.6, rz: Math.PI / 2 }));
   return merge([
     ...wheels,
-    part(box(2.5, 2.6, 11), '#1f5fbf', { y: 1.75 }),
+    part(box(2.5, 2.6, 11), color, { y: 1.75 }),
     part(box(2.52, 0.9, 10.4), '#22303f', { y: 2.3 }),
     part(box(2.52, 0.35, 11), '#ffffff', { y: 0.65 }),
     part(box(2.2, 0.25, 0.05), '#ffd23d', { y: 2.9, z: 5.51 }),
@@ -318,19 +320,28 @@ export const PROP_TYPES = [
   P({ id: 'bin', name: '쓰레기통', pick: 0.9, foot: 0.27, h: 0.9, tier: 2, count: 11, build: trashBin }),
   P({ id: 'bike', name: '따릉이', pick: 1.5, foot: 0.4, h: 1.0, tier: 3, count: 10, build: () => bicycle('#2fae6b') }),
   P({ id: 'bench', name: '벤치', pick: 1.7, foot: 0.6, h: 0.9, tier: 3, count: 6, build: bench }),
-  P({ id: 'person-a', name: '시민', pick: 1.6, foot: 0.25, h: 1.7, tier: 3, count: 10, build: () => person('#ff6b6b', '#2b3a55'), move: 'walk', speed: 1.1 }),
-  P({ id: 'person-b', name: '관광객', pick: 1.6, foot: 0.25, h: 1.7, tier: 3, count: 10, build: () => person('#4fc3f7', '#5a4632'), move: 'walk', speed: 0.9 }),
-  P({ id: 'person-c', name: '회사원', pick: 1.6, foot: 0.25, h: 1.7, tier: 3, count: 10, build: () => person('#ffffff', '#1f1f1f'), move: 'walk', speed: 1.3 }),
+  // 인파: 인도와 광장 곳곳에 아주 많이 (place: 'crowd')
+  ...[
+    ['시민', '#2b2d33', '#3a3f4a'], ['회사원', '#1f2430', '#1f2430'], ['관광객', '#c8b48a', '#4a4f5a'], ['학생', '#3b4f7a', '#2b2b2b'],
+    ['등산객', '#b8432f', '#3d3d3d'], ['시민', '#e6e3dc', '#5a6270'], ['시민', '#6d7a5a', '#2f3136'], ['관광객', '#9aa3ad', '#7a6a55'],
+  ].map(([name, top, pants], i) => P({
+    id: `person-${i}`, name, pick: 1.6, foot: 0.25, h: 1.7, tier: 3, count: 300, place: 'crowd',
+    build: () => person(top, pants), move: 'walk', speed: 0.9 + (i % 4) * 0.15,
+  })),
   P({ id: 'scooter', name: '오토바이', pick: 1.8, foot: 0.5, h: 1.1, tier: 3, count: 5, build: scooter }),
   P({ id: 'phone-booth', name: '공중전화', pick: 2.2, foot: 0.5, h: 2.4, tier: 3, count: 8, build: phoneBooth }),
   P({ id: 'kiosk', name: '가판대', pick: 2.8, foot: 1.0, h: 2.4, tier: 4, count: 10, build: kiosk }),
   P({ id: 'bus-stop', name: '버스정류장', pick: 4.5, foot: 1.6, h: 2.7, tier: 4, count: 10, build: busStop }),
-  P({ id: 'car-w', name: '승용차', pick: 3.0, foot: 1.2, h: 1.6, tier: 4, count: 6, place: 'road', build: () => car('#f4f4f4') }),
-  P({ id: 'car-k', name: '승용차', pick: 3.0, foot: 1.2, h: 1.6, tier: 4, count: 5, place: 'road', build: () => car('#2b2b33') }),
-  P({ id: 'taxi', name: '서울 택시', pick: 3.0, foot: 1.2, h: 1.8, tier: 4, count: 6, place: 'road', build: taxi }),
-  P({ id: 'tree', name: '은행나무', pick: 3.6, foot: 0.35, h: 6.8, tier: 4, count: 14, place: 'tree', build: ginkgo }),
-  P({ id: 'truck', name: '트럭', pick: 5.0, foot: 1.8, h: 3.3, tier: 5, count: 6, place: 'road', build: truck }),
-  P({ id: 'bus', name: '간선버스', pick: 6.0, foot: 2.5, h: 3.1, tier: 5, count: 3, place: 'road', build: bus }),
+  P({ id: 'car-w', name: '승용차', pick: 3.0, foot: 1.2, h: 1.6, tier: 4, count: 220, place: 'road', move: 'drive', speed: 11, build: () => car('#ecedea') }),
+  P({ id: 'car-k', name: '승용차', pick: 3.0, foot: 1.2, h: 1.6, tier: 4, count: 170, place: 'road', move: 'drive', speed: 12, build: () => car('#24262b') }),
+  P({ id: 'car-s', name: '승용차', pick: 3.0, foot: 1.2, h: 1.6, tier: 4, count: 170, place: 'road', move: 'drive', speed: 11, build: () => car('#a7abb0') }),
+  P({ id: 'car-g', name: 'SUV', pick: 3.2, foot: 1.3, h: 1.8, tier: 4, count: 90, place: 'road', move: 'drive', speed: 10, build: () => car('#5c6066') }),
+  P({ id: 'taxi', name: '서울 택시', pick: 3.0, foot: 1.2, h: 1.8, tier: 4, count: 120, place: 'road', move: 'drive', speed: 12, build: taxi }),
+  P({ id: 'scooter-d', name: '배달 오토바이', pick: 1.8, foot: 0.5, h: 1.1, tier: 3, count: 60, place: 'road', move: 'drive', speed: 14, build: scooter }),
+  P({ id: 'tree', name: '은행나무', pick: 3.6, foot: 0.35, h: 6.8, tier: 4, count: 400, place: 'tree', build: ginkgo }),
+  P({ id: 'truck', name: '트럭', pick: 5.0, foot: 1.8, h: 3.3, tier: 5, count: 40, place: 'road', move: 'drive', speed: 9, build: truck }),
+  P({ id: 'bus', name: '간선버스', pick: 6.0, foot: 2.5, h: 3.1, tier: 5, count: 30, place: 'road', move: 'drive', speed: 9, build: bus }),
+  P({ id: 'bus-g', name: '지선버스', pick: 6.0, foot: 2.5, h: 3.1, tier: 5, count: 20, place: 'road', move: 'drive', speed: 9, build: () => bus('#3c9a4b') }),
 ];
 
 // 공 지름 d에서 흡수 가능한가

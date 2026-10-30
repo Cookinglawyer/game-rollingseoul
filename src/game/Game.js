@@ -4,6 +4,7 @@ import { World, loadMap, emptyMap } from './world.js';
 import { Input } from './input.js';
 import { initAudio, popSound, bonkSound, fanfare, tick } from './audio.js';
 import { Player } from './player.js';
+import { facadeMaterial } from './facades.js';
 
 // 흡수할 때 부피가 얼마나 늘어나는지: 지름³ += GROWTH × 크기³
 const GROWTH = 2.6;
@@ -14,7 +15,33 @@ const CORE_RATIO = 0.7;
 // 물건은 반지름 이 정도 공이 시작점에서 갈 수 있는 곳에만 놓는다
 const PLACE_R = 4.5;
 const TURN_RATE = 1.3; // 라디안/초
-const SKY = '#bfe3ff';
+const START_CLEAR = 20; // 인파·차량을 두지 않는 시작점 반경(m)
+
+// 차: 도로 폴리라인의 seg번째 구간에서 시작점으로부터 s만큼, dir 방향의 오른쪽 차선(lane)
+function drivePose(c) {
+  const p = c.road.p, a = p[c.seg], b = p[c.seg + 1];
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+  const ux = (b[0] - a[0]) / len, un = (b[1] - a[1]) / len;
+  const e = a[0] + ux * c.s + c.dir * un * c.lane;
+  const n = a[1] + un * c.s - c.dir * ux * c.lane;
+  return [e, -n, Math.atan2(c.dir * ux, -c.dir * un)];
+}
+
+// 구간 끝에 닿으면 다음 구간으로, 길 끝이면 유턴
+function driveStep(c, dt) {
+  const p = c.road.p;
+  const segLen = (i) => Math.hypot(p[i + 1][0] - p[i][0], p[i + 1][1] - p[i][1]);
+  c.s += c.speed * dt * c.dir;
+  for (let guard = 0; guard < 8; guard++) {
+    const len = segLen(c.seg);
+    if (c.dir > 0 && c.s > len) {
+      if (c.seg + 2 < p.length) { c.s -= len; c.seg++; } else { c.s = len; c.dir = -1; }
+    } else if (c.dir < 0 && c.s < 0) {
+      if (c.seg > 0) { c.seg--; c.s += segLen(c.seg); } else { c.s = 0; c.dir = 1; }
+    } else break;
+  }
+}
+const HAZE = '#d3dbe0'; // 지평선 쪽 뿌연 하늘 = 안개 색
 
 function rng(seed) {
   let s = 0;
@@ -81,6 +108,23 @@ function lumpySphere() {
   return g;
 }
 
+// 위는 옅은 파랑, 지평선은 뿌연 회백색인 서울 하늘
+function skyTexture() {
+  const c = document.createElement('canvas');
+  c.width = 4;
+  c.height = 256;
+  const g = c.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, 256);
+  gr.addColorStop(0, '#8fb1cc');
+  gr.addColorStop(0.55, '#c3d2dd');
+  gr.addColorStop(1, HAZE);
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 4, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 export class Game {
   constructor(root, stage, onEnd) {
     this.root = root;
@@ -96,7 +140,9 @@ export class Game {
     const map = (this.stage.map && (await loadMap(this.stage.map))) || emptyMap();
     if (this.disposed) return;
     this.mapData = map;
-    this.world = new World(map);
+    const facades = await facadeMaterial();
+    if (this.disposed) return;
+    this.world = new World(map, facades);
     this.rand = rng(this.stage.id);
 
     this.setupRenderer();
@@ -128,6 +174,8 @@ export class Game {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping; // 사진 같은 색감
+    this.renderer.toneMappingExposure = 1.05;
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.01, 3000);
     this._resize = () => {
       const w = this.root.clientWidth, h = this.root.clientHeight;
@@ -141,10 +189,10 @@ export class Game {
 
   setupScene() {
     const scene = (this.scene = new THREE.Scene());
-    scene.background = new THREE.Color(SKY);
-    scene.fog = new THREE.Fog(SKY, 60, 700);
-    scene.add(new THREE.HemisphereLight('#ffffff', '#b9a98f', 1.6));
-    const sun = (this.sun = new THREE.DirectionalLight('#fff3dc', 2.2));
+    scene.background = skyTexture();
+    scene.fog = new THREE.Fog(HAZE, 60, 700);
+    scene.add(new THREE.HemisphereLight('#d7e4ee', '#7d7468', 1.15));
+    const sun = (this.sun = new THREE.DirectionalLight('#fff1dc', 2.6));
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     sun.shadow.bias = -0.0005;
@@ -182,14 +230,29 @@ export class Game {
       hash.get(k).push(it);
     };
 
-    const roads = (this.mapData.roads || []).filter((r) => r.w >= 6 && r.car !== false);
-    const roadSegs = [];
-    let roadLen = 0;
-    for (const r of roads) for (let i = 0; i < r.p.length - 1; i++) {
-      const a = r.p[i], b = r.p[i + 1];
-      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      roadSegs.push({ a, b, w: r.w, len, acc: (roadLen += len) });
-    }
+    // 도로 구간 목록 (길이 비례로 고르기 위해 누적 길이를 같이 둔다)
+    const segList = (roads) => {
+      const segs = [];
+      let total = 0;
+      for (const r of roads) for (let i = 0; i < r.p.length - 1; i++) {
+        const a = r.p[i], b = r.p[i + 1];
+        const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (len > 0.5) segs.push({ a, b, w: r.w, len, acc: (total += len), road: r, i });
+      }
+      return { segs, total, pick: () => { const t = R() * total; return segs.find((q) => q.acc >= t) || segs[segs.length - 1]; } };
+    };
+    const carRoads = segList((this.mapData.roads || []).filter((r) => r.w >= 6 && r.car !== false));
+    const allRoads = segList(this.mapData.roads || []);
+    const roadSegs = carRoads.segs;
+    const onCarRoad = (x, z) => {
+      const n = -z;
+      for (const q of roadSegs) {
+        const vx = q.b[0] - q.a[0], vn = q.b[1] - q.a[1];
+        const t = Math.max(0, Math.min(1, ((x - q.a[0]) * vx + (n - q.a[1]) * vn) / (q.len * q.len)));
+        if (Math.hypot(x - q.a[0] - vx * t, n - q.a[1] - vn * t) < q.w / 2 + 0.3) return true;
+      }
+      return false;
+    };
     // 시작점에서 큰 공(반지름 PLACE_R)으로 갈 수 있는 칸에만 배치
     world.buildNav(2);
     const reach = world.flood(sx, sz, PLACE_R);
@@ -199,6 +262,12 @@ export class Game {
     });
     const mapTrees = (this.mapData.trees || []).map(([x, n]) => [x, -n]).filter(([x, z]) => world.inPlay(x, z, 1) && reachable(x, z));
 
+    const lm = (name) => world.buildings.find((b) => b.name === name);
+    const yi = lm('이순신 장군 동상'), gate = lm('광화문');
+    this.plazaBox = yi && gate
+      ? [Math.min(yi.x, gate.x) - 45, Math.min(yi.z, gate.z) + 15, Math.max(yi.x, gate.x) + 45, Math.max(yi.z, gate.z) - 5]
+      : [sx - 60, sz - 150, sx + 60, sz + 150];
+
     this.items = [];
     this.meshes = [];
     const material = new THREE.MeshLambertMaterial({ vertexColors: true });
@@ -206,16 +275,28 @@ export class Game {
 
     for (const type of PROP_TYPES) {
       type.geom ||= type.build();
-      const [rMin, rMax] = TIER_RANGE[type.tier];
+      // 인파와 차량은 지도 전체에 퍼뜨리되 시작점 바로 옆은 비워 둔다 (작은 공이 갇히지 않게)
+      const spread = type.place === 'crowd' || type.move === 'drive';
+      const [rMin, rMax] = spread ? [START_CLEAR, Infinity] : TIER_RANGE[type.tier];
       const placed = [];
       let treeIdx = 0;
       const treePool = type.place === 'tree' ? mapTrees.slice().sort(() => R() - 0.5) : [];
 
       for (let n = 0, tries = 0; n < type.count && tries < type.count * 200; tries++) {
         let x, z, rot = R() * Math.PI * 2;
-        if (type.place === 'road' && roadSegs.length) {
-          const t = R() * roadLen;
-          const seg = roadSegs.find((s) => s.acc >= t) || roadSegs[roadSegs.length - 1];
+        let extra = null;
+        if (type.move === 'drive' && roadSegs.length) {
+          // 차선을 따라 달리는 차 (일부는 갓길에 주차)
+          const seg = carRoads.pick();
+          const parked = R() < 0.2;
+          extra = {
+            road: seg.road, seg: seg.i, s: R() * seg.len, dir: R() < 0.5 ? 1 : -1,
+            lane: parked ? seg.w / 2 - 1.3 : Math.min(seg.w / 4, 3.6),
+            speed: parked ? 0 : type.speed * (0.75 + R() * 0.5),
+          };
+          [x, z, rot] = drivePose(extra);
+        } else if (type.place === 'road' && roadSegs.length) {
+          const seg = carRoads.pick();
           const u = R();
           const dx = seg.b[0] - seg.a[0], dn = seg.b[1] - seg.a[1];
           const off = (R() - 0.5) * Math.max(0, seg.w - 3);
@@ -223,8 +304,26 @@ export class Game {
           z = -(seg.a[1] + dn * u + (dx / seg.len) * off);
           rot = Math.atan2(dx, -dn) + (R() < 0.5 ? Math.PI : 0);
           if (Math.hypot(x - sx, z - sz) < rMin) continue;
+        } else if (type.place === 'crowd' && R() < 0.3) {
+          // 광화문 광장 (이순신 동상 ~ 광화문)에 몰린 인파
+          const plaza = this.plazaBox;
+          x = plaza[0] + R() * (plaza[2] - plaza[0]);
+          z = plaza[1] + R() * (plaza[3] - plaza[1]);
+        } else if (type.place === 'crowd' && allRoads.segs.length && R() < 0.75) {
+          // 인도: 길 가장자리에서 1~3.5m 바깥, 길 방향으로 걷는다
+          const seg = allRoads.pick();
+          const u = R(), side = R() < 0.5 ? 1 : -1;
+          const dx = (seg.b[0] - seg.a[0]) / seg.len, dn = (seg.b[1] - seg.a[1]) / seg.len;
+          const off = side * (seg.w / 2 + 1 + R() * 2.5);
+          x = seg.a[0] + dx * seg.len * u + dn * off;
+          z = -(seg.a[1] + dn * seg.len * u - dx * off);
+          extra = { walkDir: Math.atan2(-dn, dx) };
         } else if (type.place === 'tree' && treeIdx < treePool.length) {
           [x, z] = treePool[treeIdx++];
+        } else if (!Number.isFinite(rMax)) {
+          // 광장 등 지도 아무 곳
+          x = x0 + R() * (x1 - x0);
+          z = z0 + R() * (z1 - z0);
         } else {
           const ang = R() * Math.PI * 2;
           const rr = Math.sqrt(rMin * rMin + R() * (rMax * rMax - rMin * rMin));
@@ -236,7 +335,9 @@ export class Game {
         if (Math.hypot(x - sx, z - sz) < 0.15 + type.foot) continue;
         if (!free(x, z, type.foot)) continue;
         if (world.isBlocked(x, z, type.foot + 0.3)) continue;
-        const it = { type, x, z, rot, foot: type.foot, alive: true, idx: placed.length, t: R() * 5, vx: 0, vz: 0 };
+        if (spread && Math.hypot(x - sx, z - sz) < rMin) continue;
+        if (type.place === 'crowd' && onCarRoad(x, z)) continue; // 사람은 차도 말고 인도·광장에
+        const it = { type, x, z, rot, foot: type.foot, alive: true, idx: placed.length, t: R() * 5, vx: 0, vz: 0, ...extra };
         placed.push(it);
         occupy(it);
         n++;
@@ -512,6 +613,16 @@ export class Game {
     const R = this.rand;
     for (const it of this.movers) {
       if (!it.alive) continue;
+      if (it.type.move === 'drive') {
+        if (it.speed) {
+          driveStep(it, dt);
+          [it.x, it.z, it.rot] = drivePose(it);
+          // 놀이 구역 밖으로 나가려 하면 유턴
+          if (!this.world.inPlay(it.x, it.z, 3)) it.dir = -it.dir;
+          this.setInstance(it);
+        }
+        continue;
+      }
       it.t -= dt;
       const dist = Math.hypot(it.x - c.x, it.z - c.z);
       if (it.type.move === 'hop') {
@@ -538,7 +649,8 @@ export class Game {
         if (it.t <= 0) {
           it.t = 2 + R() * 5;
           const walk = R() < 0.7;
-          const a = R() * Math.PI * 2;
+          // 인도의 사람은 길 방향(앞뒤)으로, 나머지는 아무 방향으로
+          const a = it.walkDir !== undefined ? it.walkDir + (R() < 0.5 ? 0 : Math.PI) + (R() - 0.5) * 0.3 : R() * Math.PI * 2;
           const sp = walk ? it.type.speed : 0;
           it.vx = Math.cos(a) * sp;
           it.vz = Math.sin(a) * sp;

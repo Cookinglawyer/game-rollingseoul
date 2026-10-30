@@ -2,15 +2,16 @@
 // 좌표계: x = 동쪽(m), z = 남쪽(m). 지도 JSON은 [동, 북] 이므로 z = -북.
 import * as THREE from '../../vendor/three.module.min.js';
 import { LANDMARK_BUILDINGS, STATUES } from './landmarks.js';
+import { koreanBuilding } from './facades.js';
 
-const ROAD_COLOR = '#55565c';
+const ROAD_COLOR = '#55565c'; // 미니맵 도로색
 const BLD_CELL = 32; // 건물 위치 색인 칸 크기(m)
 const EMPTY = [];
 const AREA_COLORS = {
-  plaza: '#d9cbb4',
-  grass: '#8fc46a',
-  park: '#9ccf74',
-  water: '#6fb7e8',
+  plaza: '#bdb6a8',
+  grass: '#6f8a55',
+  park: '#73905a',
+  water: '#6d8fa3',
 };
 
 export async function loadMap(url) {
@@ -38,7 +39,22 @@ export function emptyMap() {
   };
 }
 
+// 바닥 삼각형이 위(+y)를 보도록 감는 방향을 맞춘다. 아래를 보면 뒷면으로 그려져 빛을 못 받아 검게 나온다.
+function faceUp(pos, uv) {
+  for (let i = 0; i < pos.length; i += 9) {
+    const ax = pos[i], az = pos[i + 2];
+    const cross = (pos[i + 5] - az) * (pos[i + 6] - ax) - (pos[i + 3] - ax) * (pos[i + 8] - az);
+    if (cross >= 0) continue;
+    for (let k = 0; k < 3; k++) [pos[i + 3 + k], pos[i + 6 + k]] = [pos[i + 6 + k], pos[i + 3 + k]];
+    if (uv) {
+      const j = (i / 9) * 6;
+      for (let k = 0; k < 2; k++) [uv[j + 2 + k], uv[j + 4 + k]] = [uv[j + 4 + k], uv[j + 2 + k]];
+    }
+  }
+}
+
 function flatGeometry(pos, colors) {
+  faceUp(pos);
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   const nor = new Float32Array(pos.length);
@@ -58,170 +74,130 @@ function polygonArea(pts) {
   return a / 2;
 }
 
-function pavementTexture() {
+function canvasTexture(w, h, draw) {
   const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const g = c.getContext('2d');
-  g.fillStyle = '#c9c2b6';
-  g.fillRect(0, 0, 256, 256);
-  // 보도블록 4x4장 + 미세한 얼룩
-  for (let y = 0; y < 4; y++) {
-    for (let x = 0; x < 4; x++) {
-      const v = 190 + ((x * 7 + y * 13) % 5) * 6;
-      g.fillStyle = `rgb(${v},${v - 6},${v - 16})`;
-      g.fillRect(x * 64 + 2, y * 64 + 2, 60, 60);
+  c.width = w;
+  c.height = h;
+  draw(c.getContext('2d'));
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+function speckle(g, w, h, n, alpha) {
+  let seed = 9;
+  const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < n; i++) {
+    g.fillStyle = `rgba(${r() < 0.5 ? '0,0,0' : '255,255,255'},${r() * alpha})`;
+    g.fillRect(r() * w, r() * h, 1 + r() * 3, 1 + r() * 3);
+  }
+}
+
+// 보도블록 (한 장 = 2.5m)
+function sidewalkTexture() {
+  return canvasTexture(256, 256, (g) => {
+    g.fillStyle = '#a9a398';
+    g.fillRect(0, 0, 256, 256);
+    let seed = 6;
+    const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (let y = 0; y < 256; y += 32) for (let x = 0; x < 256; x += 64) {
+      const v = 160 + r() * 18;
+      g.fillStyle = `rgb(${v},${v - 5},${v - 14})`;
+      g.fillRect(x + 1, y + 1, 62, 30);
     }
-  }
-  for (let i = 0; i < 400; i++) {
-    g.fillStyle = `rgba(80,70,60,${Math.random() * 0.08})`;
-    g.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  return tex;
+    speckle(g, 256, 256, 1500, 0.07);
+  });
 }
 
-// 블록 벽 텍스처: 한 장 = 블록 2단(6.6m) x 8m. 단마다 이음새가 엇갈린다.
-// 오른쪽 아래 흰 칸(BLANK_UV)은 지붕·돌기에 쓴다.
-const BLANK_UV = [0.75, 0.25];
-function brickTexture() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 128;
-  const g = c.getContext('2d');
-  g.fillStyle = '#ffffff';
-  g.fillRect(0, 0, 128, 128);
-  g.fillStyle = '#c8c8c8';
-  g.fillRect(0, 60, 128, 4); // 단 사이 줄
-  g.fillRect(0, 124, 128, 4);
-  g.fillRect(0, 0, 3, 64); // 위 단 이음새
-  g.fillRect(64, 64, 3, 64); // 아래 단 이음새 (엇갈림)
-  g.fillStyle = 'rgba(255,255,255,0.6)';
-  g.fillRect(0, 0, 128, 3); // 단 위쪽 하이라이트
-  g.fillRect(0, 64, 128, 3);
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  return tex;
+function asphaltTexture() {
+  return canvasTexture(256, 256, (g) => {
+    g.fillStyle = '#46484b';
+    g.fillRect(0, 0, 256, 256);
+    speckle(g, 256, 256, 4000, 0.12);
+  });
 }
 
-// 장난감 블록 같은 색
-const BLOCK_COLORS = ['#e3342f', '#f6c90e', '#2a6fdb', '#f4f4f4', '#2fae6b', '#f28c28', '#d9c8a5', '#9aa5b1', '#5bc0eb', '#a05195'];
-
-function hashStr(s) {
-  let h = 0;
-  for (const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return h;
-}
-
-// 건물 하나 = 메시 하나. 좌표는 건물 중심(바닥) 기준이라 공에 붙일 때 그대로 옮기면 된다.
-function buildingMesh(b, bi, material) {
-  let pts = b.p;
-  if (polygonArea(pts) < 0) pts = pts.slice().reverse(); // 반시계 방향으로
-  const h = b.h;
-  let cx = 0, cn = 0;
-  for (const [x, n] of pts) { cx += x; cn += n; }
-  cx /= pts.length;
-  cn /= pts.length;
-
-  const color = new THREE.Color();
-  if (b.c) color.set(b.c);
-  else if (b.k === 'traditional') color.set('#c0392b');
-  else color.set(BLOCK_COLORS[hashStr(b.n || bi) % BLOCK_COLORS.length]);
-  const roof = new THREE.Color(b.rc || (b.k === 'traditional' ? '#3d4a4f' : color.getStyle())).multiplyScalar(b.rc ? 1 : 0.92);
-
-  const pos = [], nor = [], uv = [], col = [];
-  const push = (x, y, z, nx, ny, nz, u, v, c) => {
-    pos.push(x, y, z); nor.push(nx, ny, nz); uv.push(u, v); col.push(c.r, c.g, c.b);
-  };
-
-  // 벽
-  let run = 0;
-  for (let i = 0; i < pts.length; i++) {
-    const a = pts[i], c = pts[(i + 1) % pts.length];
-    const ax = a[0] - cx, az = -(a[1] - cn), bx = c[0] - cx, bz = -(c[1] - cn);
-    const len = Math.hypot(bx - ax, bz - az);
+// 폴리라인을 폭 w로 넓힌 띠. 아스팔트 무늬는 방향이 없으니 uv는 월드 좌표(8m = 1)로.
+function ribbon(pts, w, y = 0) {
+  const pos = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, an] = pts[i], [bx, bn] = pts[i + 1];
+    const az = -an, bz = -bn, len = Math.hypot(bx - ax, bz - az);
     if (len < 0.01) continue;
-    const nx = -(bz - az) / len, nz = (bx - ax) / len; // 바깥쪽 법선
-    const u0 = run / 8, u1 = (run + len) / 8, v1 = h / 6.6;
-    run += len;
-    push(ax, 0, az, nx, 0, nz, u0, 0, color);
-    push(bx, 0, bz, nx, 0, nz, u1, 0, color);
-    push(bx, h, bz, nx, 0, nz, u1, v1, color);
-    push(ax, 0, az, nx, 0, nz, u0, 0, color);
-    push(bx, h, bz, nx, 0, nz, u1, v1, color);
-    push(ax, h, az, nx, 0, nz, u0, v1, color);
-  }
-
-  // 지붕
-  const tris = THREE.ShapeUtils.triangulateShape(pts.map(toVec2), []);
-  for (const t of tris) {
-    for (const idx of [t[0], t[2], t[1]]) push(pts[idx][0] - cx, h, -(pts[idx][1] - cn), 0, 1, 0, BLANK_UV[0], BLANK_UV[1], roof);
-  }
-
-  // 지붕 위 돌기(스터드): 바닥 면적에 맞춰 간격을 정하고 외곽선 안쪽에만
-  let minX = Infinity, maxX = -Infinity, minN = Infinity, maxN = -Infinity;
-  for (const [x, n] of pts) {
-    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-    minN = Math.min(minN, n); maxN = Math.max(maxN, n);
-  }
-  const ext = Math.max(maxX - minX, maxN - minN);
-  const area = Math.abs(polygonArea(pts));
-  const step = Math.max(2.4, Math.sqrt(area) / 4);
-  const studR = step * 0.28, studH = step * 0.18;
-  const stud = new THREE.CylinderGeometry(studR, studR, studH, 10).toNonIndexed();
-  const sp = stud.attributes.position, sn = stud.attributes.normal;
-  let studs = 0;
-  for (let x = minX + step / 2; x < maxX && studs < 40; x += step) {
-    for (let n = minN + step / 2; n < maxN && studs < 40; n += step) {
-      if (!pointInPoly(x, n, pts)) continue;
-      studs++;
-      for (let k = 0; k < sp.count; k++) {
-        push(sp.getX(k) + x - cx, sp.getY(k) + h + studH / 2, sp.getZ(k) - (n - cn), sn.getX(k), sn.getY(k), sn.getZ(k), BLANK_UV[0], BLANK_UV[1], roof);
-      }
+    const nx = (-(bz - az) / len) * w / 2, nz = ((bx - ax) / len) * w / 2;
+    pos.push(ax + nx, y, az + nz, bx - nx, y, bz - nz, bx + nx, y, bz + nz, ax + nx, y, az + nz, ax - nx, y, az - nz, bx - nx, y, bz - nz);
+    // 이음새를 메우는 원판
+    for (let s = 0; s < 8; s++) {
+      const t0 = (s / 8) * Math.PI * 2, t1 = ((s + 1) / 8) * Math.PI * 2, r = w / 2;
+      pos.push(bx, y, bz, bx + Math.cos(t1) * r, y, bz + Math.sin(t1) * r, bx + Math.cos(t0) * r, y, bz + Math.sin(t0) * r);
     }
   }
-
+  const uv = [];
+  for (let i = 0; i < pos.length; i += 3) uv.push(pos[i] / 8, pos[i + 2] / 8);
+  faceUp(pos, uv);
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-  g.computeBoundingSphere();
-  const mesh = new THREE.Mesh(g, material);
-  mesh.position.set(cx, 0, -cn);
-  mesh.castShadow = mesh.receiveShadow = true;
-  return { mesh, cx, cz: -cn, ext };
+  const nor = new Float32Array(pos.length);
+  for (let i = 1; i < nor.length; i += 3) nor[i] = 1;
+  g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  return g;
 }
 
-// 도로: 중심선 폴리라인을 폭만큼 넓힌 띠
+// 폴리라인을 옆으로 off만큼 평행 이동 (차선 그리기용)
+export function offsetLine(pts, off) {
+  return pts.map(([x, n], i) => {
+    const [ax, an] = pts[Math.max(0, i - 1)], [bx, bn] = pts[Math.min(pts.length - 1, i + 1)];
+    const l = Math.hypot(bx - ax, bn - an) || 1;
+    return [x - ((bn - an) / l) * off, n + ((bx - ax) / l) * off];
+  });
+}
+
+function mergeGeoms(list) {
+  if (!list.length) return null;
+  let n = 0;
+  for (const g of list) n += g.attributes.position.count;
+  const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2);
+  let o = 0;
+  for (const g of list) {
+    pos.set(g.attributes.position.array, o * 3);
+    nor.set(g.attributes.normal.array, o * 3);
+    uv.set(g.attributes.uv.array, o * 2);
+    o += g.attributes.position.count;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return g;
+}
+
+// 도로: 아스팔트 + 넓은 길은 노란 중앙선과 흰 차선
 function buildRoads(roads) {
-  const pos = [];
+  const group = new THREE.Group();
+  const flat = (o) => ({ side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: o, polygonOffsetUnits: o });
+  const roadGeoms = [], footGeoms = [], center = [], lanes = [];
   for (const r of roads) {
-    const w = r.w / 2;
-    for (let i = 0; i < r.p.length - 1; i++) {
-      const [ax, an] = r.p[i];
-      const [bx, bn] = r.p[i + 1];
-      const az = -an, bz = -bn;
-      const len = Math.hypot(bx - ax, bz - az);
-      if (len < 0.01) continue;
-      const nx = -(bz - az) / len * w, nz = (bx - ax) / len * w;
-      pos.push(ax + nx, 0, az + nz, bx - nx, 0, bz - nz, bx + nx, 0, bz + nz);
-      pos.push(ax + nx, 0, az + nz, ax - nx, 0, az - nz, bx - nx, 0, bz - nz);
-      // 이음새를 메우는 원판
-      const seg = 8;
-      for (let s = 0; s < seg; s++) {
-        const t0 = (s / seg) * Math.PI * 2, t1 = ((s + 1) / seg) * Math.PI * 2;
-        pos.push(bx, 0, bz, bx + Math.cos(t1) * w, 0, bz + Math.sin(t1) * w, bx + Math.cos(t0) * w, 0, bz + Math.sin(t0) * w);
-      }
+    (r.car === false ? footGeoms : roadGeoms).push(ribbon(r.p, r.w));
+    if (r.car !== false && r.w >= 10) {
+      center.push(ribbon(r.p, 0.35, 0.02));
+      for (const off of [-r.w / 4, r.w / 4]) lanes.push(ribbon(offsetLine(r.p, off), 0.15, 0.02));
     }
   }
-  const g = flatGeometry(pos);
-  const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: ROAD_COLOR, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
-  m.receiveShadow = true;
-  return m;
+  const add = (geoms, mat) => {
+    const g = mergeGeoms(geoms);
+    if (!g) return;
+    const m = new THREE.Mesh(g, mat);
+    m.receiveShadow = true;
+    group.add(m);
+  };
+  add(roadGeoms, new THREE.MeshLambertMaterial({ map: asphaltTexture(), ...flat(-2) }));
+  add(footGeoms, new THREE.MeshLambertMaterial({ color: '#b9b2a5', ...flat(-1) }));
+  add(center, new THREE.MeshBasicMaterial({ color: '#d9b43c', ...flat(-4) }));
+  add(lanes, new THREE.MeshBasicMaterial({ color: '#d8d8d2', ...flat(-4) }));
+  return group;
 }
 
 function buildAreas(areas) {
@@ -300,7 +276,8 @@ function pointInPoly(x, n, pts) {
 }
 
 export class World {
-  constructor(map) {
+  // facades: facades.js의 facadeMaterial() 결과 (외벽 아틀라스 재질)
+  constructor(map, facades) {
     this.map = map;
     this.play = map.play; // [x0, z0, x1, z1] (z = 남쪽)
     this.start = map.start; // [x, z]
@@ -308,8 +285,8 @@ export class World {
 
     const [x0, z0, x1, z1] = this.play;
     const span = Math.max(x1 - x0, z1 - z0) * 3;
-    const tex = pavementTexture();
-    tex.repeat.set(span / 2, span / 2); // 블록 1장 = 0.5m
+    const tex = sidewalkTexture();
+    tex.repeat.set(span / 2.5, span / 2.5); // 보도블록 한 장 = 2.5m
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(span, span), new THREE.MeshLambertMaterial({ map: tex }));
     ground.rotation.x = -Math.PI / 2;
     ground.position.set((x0 + x1) / 2, 0, (z0 + z1) / 2);
@@ -324,7 +301,6 @@ export class World {
     this.grid = new SegmentGrid(8);
     this.buildings = [];
     this.bgrid = new Map();
-    const material = new THREE.MeshLambertMaterial({ vertexColors: true, map: brickTexture() });
     const landmarkMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
     (map.buildings || []).forEach((b, bi) => {
       if (b.p.length < 3) return;
@@ -339,8 +315,8 @@ export class World {
         this.addBuilding({ pts: b.p, h, name: b.n, mesh, x: f.cx, z: -f.cn, ext: Math.max(f.L, f.D), landmark: true });
         return;
       }
-      const { mesh, cx, cz, ext } = buildingMesh(b, bi, material);
-      this.addBuilding({ pts: b.p, h: b.h, name: b.n || '', mesh, x: cx, z: cz, ext });
+      const { mesh, cx, cz, ext, h } = koreanBuilding(b, bi, facades);
+      this.addBuilding({ pts: b.p, h, name: b.n || '', mesh, x: cx, z: cz, ext });
     });
 
     // 지도에 없는 동상들 (지도 데이터에 같은 이름 지점이 있으면 그 위치로)

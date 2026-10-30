@@ -13,7 +13,7 @@ export const STAGES = [
     map: 'data/gwanghwamun.json',
     startSize: 0.1,
     goalSize: 250,
-    timeLimit: 600,
+    timeLimit: 720,
     targets: ['동전', '비둘기', '서울 택시', '세종대왕 동상', '이순신 장군 동상', '광화문', '서울시청'],
   },
   {
