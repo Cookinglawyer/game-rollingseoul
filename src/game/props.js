@@ -291,10 +291,54 @@ function truck() {
   ]);
 }
 
+function store(band) {
+  // 단층 편의점: 흰 벽, 색 띠 간판, 유리 진열창
+  return merge([
+    part(box(9, 3.8, 6), '#f2f0ea', { y: 1.9 }),
+    part(box(9.1, 0.9, 6.1), band, { y: 3.4 }),
+    part(box(7.6, 2.2, 0.06), '#9fc7e0', { y: 1.4, z: 3.02 }),
+    part(box(1.2, 2.3, 0.08), '#40505e', { x: 3.2, y: 1.15, z: 3.04 }),
+    part(box(9.4, 0.3, 6.4), '#cfcac0', { y: 3.95 }),
+    part(box(1.4, 0.8, 1.2), '#b9bec4', { x: -2.5, y: 4.5, z: -1 }),
+  ]);
+}
+function containerOffice() {
+  // 공사장 2단 컨테이너 사무실 + 계단
+  return merge([
+    part(box(6, 2.6, 2.4), '#d9dde2', { y: 1.3 }),
+    part(box(6, 2.6, 2.4), '#2a6fdb', { y: 3.95, x: 0.4 }),
+    part(box(1.2, 1, 0.05), '#9fc7e0', { x: -1.5, y: 1.5, z: 1.22 }),
+    part(box(1.2, 1, 0.05), '#9fc7e0', { x: 1.9, y: 4.1, z: 1.22 }),
+    part(box(0.9, 0.12, 3.6), '#555555', { x: 3.6, y: 2.0, rx: 0.65, z: 0.2 }),
+  ]);
+}
+function pavilion() {
+  // 공원 정자: 기둥 넷 + 팔작 지붕 흉내
+  const posts = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) => part(cyl(0.18, 0.18, 3.2, 8), '#8a3b24', { x: a * 2.4, y: 1.6, z: b * 2.4 }));
+  return merge([
+    part(box(6, 0.5, 6), '#b9a27d', { y: 0.25 }),
+    ...posts,
+    part(cone(5.2, 2.2, 4), '#3b4048', { y: 4.3, ry: Math.PI / 4 }),
+    part(box(6.4, 0.3, 6.4), '#2e6b4f', { y: 3.25 }),
+  ]);
+}
+function crane() {
+  // 타워크레인: 노란 격자 기둥, 지브, 운전실
+  return merge([
+    part(box(2.4, 1, 2.4), '#888888', { y: 0.5 }),
+    part(box(1.6, 26, 1.6), '#f2b705', { y: 13.5 }),
+    part(box(1.2, 1.2, 22), '#f2b705', { y: 27, z: 5 }),
+    part(box(2, 2, 2), '#e0e0e0', { y: 25.5, z: 1.4 }),
+    part(box(2.4, 2, 2.4), '#555555', { y: 27, z: -6.4 }),
+    part(box(0.08, 10, 0.08), '#222222', { y: 22, z: 12 }),
+  ]);
+}
+
 // ---------- 타입 목록 ----------
 // tier: 시작점에서 얼마나 떨어진 곳에 놓이는지 (0이 가장 가까움)
 // count: 기본 개수 (스테이지 면적에 맞춰 조정됨)
 // place: 'any' | 'road' | 'tree'
+// filler: 작은 건물이 드문 지도(아파트·고층 위주)에서는 더 많이 놓는다
 // move: 'hop' | 'walk' | undefined
 const P = (o) => o;
 export const PROP_TYPES = [
@@ -342,6 +386,11 @@ export const PROP_TYPES = [
   P({ id: 'truck', name: '트럭', pick: 5.0, foot: 1.8, h: 3.3, tier: 5, count: 40, place: 'road', move: 'drive', speed: 9, build: truck }),
   P({ id: 'bus', name: '간선버스', pick: 6.0, foot: 2.5, h: 3.1, tier: 5, count: 30, place: 'road', move: 'drive', speed: 9, build: bus }),
   P({ id: 'bus-g', name: '지선버스', pick: 6.0, foot: 2.5, h: 3.1, tier: 5, count: 20, place: 'road', move: 'drive', speed: 9, build: () => bus('#3c9a4b') }),
+  P({ id: 'store-g', name: '편의점', pick: 8, foot: 4.2, h: 4.4, tier: 6, count: 6, filler: true, build: () => store('#2fae6b') }),
+  P({ id: 'store-b', name: '편의점', pick: 8, foot: 4.2, h: 4.4, tier: 6, count: 6, filler: true, build: () => store('#2a6fdb') }),
+  P({ id: 'container', name: '컨테이너 사무실', pick: 6.5, foot: 3.4, h: 5.3, tier: 6, count: 6, filler: true, build: containerOffice }),
+  P({ id: 'pavilion', name: '정자', pick: 7.5, foot: 3.6, h: 5.4, tier: 6, count: 5, filler: true, build: pavilion }),
+  P({ id: 'crane', name: '타워크레인', pick: 18, foot: 2.2, h: 28, tier: 7, count: 3, filler: true, build: crane }),
 ];
 
 // 공 지름 d에서 흡수 가능한가

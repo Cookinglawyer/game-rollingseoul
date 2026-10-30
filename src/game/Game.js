@@ -208,7 +208,10 @@ export class Game {
     const [sx, sz] = world.start;
     const [x0, z0, x1, z1] = world.play;
     // 등급별 시작점으로부터의 거리 범위(m): 작은 것일수록 시작점 가까이
-    const TIER_RANGE = [[0, 2.5], [1, 7], [4, 25], [10, 60], [20, 140], [40, 220]];
+    const TIER_RANGE = [[0, 2.5], [1, 7], [4, 25], [10, 60], [20, 140], [40, 220], [50, 320], [120, 450]];
+    // 시작점 400m 안에 작은 건물(크기 20m 미만)이 드물면 중간 크기 소품(filler)을 늘린다
+    const smallNear = world.buildings.filter((b) => b.inPlay && b.pick < 20 && Math.hypot(b.x - sx, b.z - sz) < 400).length;
+    const fillerMul = smallNear < 150 ? 6 : 1;
     const R = this.rand;
 
     // 간격 확인용 해시
@@ -280,10 +283,11 @@ export class Game {
       const spread = type.place === 'crowd' || type.move === 'drive';
       const [rMin, rMax] = spread ? [START_CLEAR, Infinity] : TIER_RANGE[type.tier];
       const placed = [];
+      const count = type.filler ? type.count * fillerMul : type.count;
       let treeIdx = 0;
       const treePool = type.place === 'tree' ? mapTrees.slice().sort(() => R() - 0.5) : [];
 
-      for (let n = 0, tries = 0; n < type.count && tries < type.count * 200; tries++) {
+      for (let n = 0, tries = 0; n < count && tries < count * 200; tries++) {
         let x, z, rot = R() * Math.PI * 2;
         let extra = null;
         if (type.move === 'drive' && roadSegs.length) {

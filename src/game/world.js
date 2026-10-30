@@ -352,7 +352,8 @@ export class World {
     const bld = {
       idx: this.buildings.length, name, pts, bb, h, x, z, mesh, alive: true, landmark,
       low: h < 2, // 아주 낮은 구조물은 밟고 지나갈 수 있음
-      pick: Math.max(h, ext) * 0.65, // 바닥 길이·높이 중 큰 쪽
+      // 바닥 길이·높이 중 큰 쪽. 150m 넘는 초고층은 넘는 부분을 40%만 쳐서 스테이지 끝에 먹을 수 있게 한다
+      pick: Math.max(h > 150 ? 150 + (h - 150) * 0.4 : h, ext) * 0.65,
       inPlay: this.inPlay(x, z),
     };
     this.buildings.push(bld);

@@ -211,13 +211,19 @@ def convert(raw, region):
                     t = i * 8 / seg if seg else 0
                     trees.append([round(ax + (bx - ax) * t, 2), round(ay + (by - ay) * t, 2)])
 
-    # 멀티폴리곤 건물(relation): 바깥 테두리만 사용
+    # 멀티폴리곤·건물 관계(relation): 바깥 테두리만 사용
     for el in raw['elements']:
         if el['type'] != 'relation' or 'building' not in el.get('tags', {}) or is_underground(el['tags']) or is_elevated(el['tags']):
             continue
-        for m in el.get('members', []):
-            if m['type'] == 'way' and m.get('role') == 'outer' and m['ref'] in ways:
+        members = [m for m in el.get('members', []) if m['type'] == 'way' and m['ref'] in ways]
+        outers = [m for m in members if m.get('role') in ('outer', 'outline')]
+        if outers:
+            for m in outers:
                 add_building(coords(ways[m['ref']]), el['tags'])
+        elif members:
+            # type=building 관계(예: 롯데월드타워)에 테두리가 없으면 가장 넓은 부분을 바닥으로 쓴다
+            polys = [coords(ways[m['ref']]) for m in members]
+            add_building(max(polys, key=lambda q: abs(sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(q, q[1:] + q[:1])))), el['tags'])
 
     trees += [proj(lon, lat) for lon, lat in tree_nodes]
 
