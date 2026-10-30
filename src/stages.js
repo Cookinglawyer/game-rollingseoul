@@ -21,7 +21,7 @@ export const STAGES = [
     no: 2,
     name: '홍대',
     district: '마포구',
-    desc: '홍대입구역 사거리에서 시작! 걷고싶은거리와 홍익대학교, 클럽거리까지 버스킹 인파째 말아서 220m를 만들자.',
+    desc: '홍대 정문 앞 놀이터(홍익문화공원)에서 시작! 걷고싶은거리와 홍익대학교, 클럽거리까지 버스킹 인파째 말아서 220m를 만들자.',
     map: 'data/hongdae.json',
     startSize: 0.1,
     goalSize: 220,
