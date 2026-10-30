@@ -59,6 +59,46 @@ out body;
 out skel qt;"""
 
 
+# 11스테이지(서울 전체)용: 범위가 넓어(약 605㎢) 큰 것만 두 번에 나눠 받는다
+SEOUL_AREA = 'area["name"="서울특별시"]["admin_level"="4"]->.s;'
+
+
+def build_query_seoul_buildings():
+    """15층 이상·45m 이상 건물, 이름 있는 건물(아파트 '101동' 같은 이름 제외), 이름 있는 탑"""
+    return f"""[out:json][timeout:600][maxsize:2000000000];
+{SEOUL_AREA}
+(
+  way["building"]["building:levels"](if: number(t["building:levels"]) >= 15)(area.s);
+  relation["building"]["building:levels"](if: number(t["building:levels"]) >= 15)(area.s);
+  way["building"]["height"](if: number(t["height"]) >= 45)(area.s);
+  relation["building"]["height"](if: number(t["height"]) >= 45)(area.s);
+  way["building"]["name"]["name"!~"^[0-9A-Za-z가-나]{{1,4}} ?동?$"](area.s);
+  relation["building"]["name"](area.s);
+  nwr["man_made"="tower"]["name"](area.s);
+);
+out body;
+>;
+out skel qt;"""
+
+
+def build_query_seoul_base():
+    """큰 도로, 다리, 한강·물, 공원·숲"""
+    return f"""[out:json][timeout:600][maxsize:2000000000];
+{SEOUL_AREA}
+(
+  way["highway"~"^(motorway|trunk|primary)(_link)?$"](area.s);
+  way["man_made"="bridge"](area.s);
+  way["natural"="water"](area.s);
+  relation["natural"="water"](area.s);
+  way["leisure"="park"](area.s);
+  relation["leisure"="park"](area.s);
+  relation["natural"="wood"](area.s);
+);
+out body;
+>;
+out skel qt;"""
+
+
 def fetch(bbox):
     data = urllib.parse.urlencode({'data': build_query(bbox)}).encode()
     req = urllib.request.Request(OVERPASS, data=data, headers={'User-Agent': 'game-rollingseoul/0.1'})
