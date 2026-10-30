@@ -64,7 +64,8 @@ SEOUL_AREA = 'area["name"="서울특별시"]["admin_level"="4"]->.s;'
 
 
 def build_query_seoul_buildings():
-    """15층 이상·45m 이상 건물, 이름 있는 건물(아파트 '101동' 같은 이름 제외), 이름 있는 탑"""
+    """15층 이상·45m 이상 건물, 이름 있는 건물(아파트 '101동'·'B동'·'101' 같은 이름 제외), 이름 있는 탑
+    Overpass 정규식은 대괄호 안 한글 범위를 못 써서 영문·숫자만 쓴다."""
     return f"""[out:json][timeout:600][maxsize:2000000000];
 {SEOUL_AREA}
 (
@@ -72,7 +73,7 @@ def build_query_seoul_buildings():
   relation["building"]["building:levels"](if: number(t["building:levels"]) >= 15)(area.s);
   way["building"]["height"](if: number(t["height"]) >= 45)(area.s);
   relation["building"]["height"](if: number(t["height"]) >= 45)(area.s);
-  way["building"]["name"]["name"!~"^[0-9A-Za-z가-나]{{1,4}} ?동?$"](area.s);
+  way["building"]["name"]["name"!~"^[0-9A-Za-z -]+$"]["name"!~"^[0-9A-Za-z -]+동$"](area.s);
   relation["building"]["name"](area.s);
   nwr["man_made"="tower"]["name"](area.s);
 );
