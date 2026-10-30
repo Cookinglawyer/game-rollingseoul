@@ -209,7 +209,21 @@ export function turtleShip() {
 }
 
 // 지도 건물 중 랜드마크 모델로 바꿀 것 (이름으로 찾음)
-export const LANDMARK_BUILDINGS = { 광화문: gwanghwamun, 기념비전: ginyeombijeon };
+// 남산서울타워: 흰 기둥 위 전망대 원통 두 단, 붉은·흰 안테나 (전체 약 237m). 바닥 외곽선과 상관없이 같은 크기.
+export function namsanTower() {
+  const parts = [];
+  parts.push(part(cyl(16, 18, 9, 16), '#d9d4cb', { y: 4.5 })); // 아래 건물
+  parts.push(part(cyl(4.5, 6.5, 128, 12), '#f1efe9', { y: 9 + 64 })); // 기둥
+  parts.push(part(cyl(12, 9, 8, 16), '#e8e6e0', { y: 141 }));
+  parts.push(part(cyl(12.4, 12.4, 10, 16), '#3a4a58', { y: 150 })); // 전망대 유리
+  parts.push(part(cyl(11, 12.4, 4, 16), '#e8e6e0', { y: 157 }));
+  parts.push(part(cyl(8, 8, 8, 12), '#3a4a58', { y: 163 }));
+  for (let i = 0; i < 7; i++) parts.push(part(cyl(2.2 - i * 0.2, 2.4 - i * 0.2, 10, 8), i % 2 ? '#ffffff' : '#d7263d', { y: 172 + i * 10 })); // 안테나
+  parts.push(part(cyl(0.4, 0.8, 6, 6), '#d7263d', { y: 240 }));
+  return { geom: merge(parts), h: 237 };
+}
+
+export const LANDMARK_BUILDINGS = { 광화문: gwanghwamun, 기념비전: ginyeombijeon, 남산서울타워: namsanTower };
 
 // 지도 데이터에 따로 없는 동상들. lonlat은 기본 위치, osm은 지도 데이터의 동상 이름으로 위치를 맞출 때 쓰는 단어.
 export const STATUES = [

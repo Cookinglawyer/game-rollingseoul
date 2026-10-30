@@ -328,6 +328,7 @@ function pointInPoly(x, n, pts) {
 function classify(b, bi) {
   const hsh = hashStr(b.n || bi);
   if (b.k === 'traditional') return { style: 'hanok', h: b.h };
+  if (b.k === 'bridge') return { style: 'concrete', h: b.h }; // 다리: 낮고 긴 콘크리트
   let h = b.h;
   if (h === 14) h = FLOOR * (3 + (hsh % 3)) + 0.8; // 높이 정보 없는 건물(기본값 14m): 3~5층으로
   const area = Math.abs(polygonArea(b.p));

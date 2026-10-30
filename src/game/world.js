@@ -233,6 +233,12 @@ function buildBoundary([x0, z0, x1, z1]) {
   return line;
 }
 
+// 서울 전체: 서울 경계선을 분홍 선으로
+function buildBorder(border) {
+  const pts = border.map(([x, n]) => new THREE.Vector3(x, 2, -n));
+  return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: '#ff3d7f' }));
+}
+
 // ---------- 충돌 ----------
 // 건물 벽 선분을 격자에 넣어 빠르게 찾는다.
 class SegmentGrid {
@@ -295,10 +301,10 @@ export class World {
 
     this.group.add(buildAreas(map.areas || []));
     this.group.add(buildRoads(map.roads || []));
-    this.group.add(buildBoundary(this.play));
+    this.group.add(map.border ? buildBorder(map.border) : buildBoundary(this.play));
 
     // 건물: 각각 메시 하나 + 충돌 선분. 공보다 충분히 작아지면 먹을 수 있다.
-    this.grid = new SegmentGrid(8);
+    this.grid = new SegmentGrid(map.giant ? 40 : 8); // 서울 전체는 공이 커서 칸도 크게
     this.buildings = [];
     this.bgrid = new Map();
     const landmarkMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
@@ -316,7 +322,7 @@ export class World {
         return;
       }
       const { mesh, cx, cz, ext, h } = koreanBuilding(b, bi, facades);
-      this.addBuilding({ pts: b.p, h, name: b.n || '', mesh, x: cx, z: cz, ext });
+      this.addBuilding({ pts: b.p, h, name: b.n || '', mesh, x: cx, z: cz, ext, kind: b.k });
     });
 
     // 지도에 없는 동상들 (지도 데이터에 같은 이름 지점이 있으면 그 위치로)
@@ -343,7 +349,7 @@ export class World {
     this._segs = [];
   }
 
-  addBuilding({ pts, h, name, mesh, x, z, ext, landmark = false }) {
+  addBuilding({ pts, h, name, mesh, x, z, ext, landmark = false, kind }) {
     const bb = [Infinity, Infinity, -Infinity, -Infinity];
     for (const [px, n] of pts) {
       bb[0] = Math.min(bb[0], px); bb[1] = Math.min(bb[1], n);
@@ -356,6 +362,11 @@ export class World {
       pick: Math.max(h > 150 ? 150 + (h - 150) * 0.4 : h, ext) * 0.65,
       inPlay: this.inPlay(x, z),
     };
+    if (kind === 'bridge') {
+      // 한강 다리: 길이의 45%면 먹을 수 있고, 성장은 실제 부피(바닥 넓이 × 높이) 기준 (길고 가늘어서)
+      bld.pick = ext * 0.45;
+      bld.gain = Math.cbrt(Math.abs(polygonArea(pts)) * h) * 1.3;
+    }
     this.buildings.push(bld);
     this.group.add(mesh);
     // 위치 색인: 바닥 사각형이 걸치는 칸마다 등록

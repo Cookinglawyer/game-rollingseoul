@@ -10,6 +10,7 @@ import { facadeMaterial } from './facades.js';
 // 흡수할 때 부피가 얼마나 늘어나는지: 지름³ += GROWTH × 크기³
 const GROWTH = 2.6;
 const BUILDING_GROWTH = 0.8; // 건물은 덩치가 커서 따로 낮춘다
+const GIANT_GROWTH = 3; // 서울 전체 스테이지
 const MAX_STUCK = 700;
 // 공 속(core)은 겉보기 반지름보다 작게 그린다. 최근에 붙은 물건 층이 표면을 덮는다.
 const CORE_RATIO = 0.7;
@@ -261,7 +262,8 @@ export class Game {
       return false;
     };
     // 시작점에서 큰 공(반지름 PLACE_R)으로 갈 수 있는 칸에만 배치
-    world.buildNav(2);
+    // 서울 전체는 범위가 넓어(약 37km) 격자를 25m로
+    world.buildNav(this.mapData.giant ? 25 : 2);
     const reach = world.flood(sx, sz, PLACE_R);
     const reachable = (this.reachable = (x, z) => {
       const i = world.navIndex(x, z);
@@ -277,6 +279,12 @@ export class Game {
 
     this.items = [];
     this.meshes = [];
+    if (this.mapData.giant) {
+      // 서울 전체: 공이 처음부터 건물만 한 크기라 소품은 두지 않는다
+      this.movers = [];
+      return;
+    }
+
     const material = new THREE.MeshLambertMaterial({ vertexColors: true });
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1), p = new THREE.Vector3();
 
@@ -436,7 +444,9 @@ export class Game {
     mesh.scale.setScalar(0.8);
     this.stickToBall(mesh, new THREE.Vector3(b.x - c.x, Math.min(b.h / 2, c.y) - c.y, b.z - c.z), 0, b.pick * 0.8);
 
-    this.diameter = Math.cbrt(this.diameter ** 3 + BUILDING_GROWTH * b.pick ** 3);
+    // 서울 전체는 실제 건물 중 큰 것만 넣었으므로 하나가 그 동네 몫까지 키운다
+    const growth = this.mapData.giant ? GIANT_GROWTH : BUILDING_GROWTH;
+    this.diameter = Math.cbrt(this.diameter ** 3 + growth * (b.gain ?? b.pick) ** 3);
     this.r = this.diameter / 2;
     popSound(0.9);
     bonkSound();
@@ -524,7 +534,8 @@ export class Game {
   loop(now) {
     if (this.disposed) return;
     this._raf = requestAnimationFrame((t) => this.loop(t));
-    const dt = Math.min(0.05, (now - this.last) / 1000);
+    // 오래 멈췄다가(지도 불러오기 등) 온 첫 프레임은 시각이 앞뒤로 어긋날 수 있어 0~0.05초로 자른다
+    const dt = Math.max(0, Math.min(0.05, (now - this.last) / 1000));
     this.last = now;
     if (!this.paused) this.update(dt);
     this.render();
@@ -756,7 +767,7 @@ export class Game {
     }
     cam.lerp(want, 1 - Math.exp(-dt * 8));
     this.camera.near = Math.max(0.005, r * 0.08);
-    this.camera.far = 3000;
+    this.camera.far = Math.max(3000, (500 + r * 120) * 1.05); // 안개 끝까지
     this.camera.updateProjectionMatrix();
     this.camera.lookAt(c.x, c.y + r * 0.4, c.z);
 
@@ -787,8 +798,10 @@ export class Game {
     if (this._labelPick <= 0) {
       this._labelPick = 0.25;
       const near = [];
+      // 서울 전체는 이름 있는 건물이 많아, 공에 비해 너무 작은 건물 이름은 띄우지 않는다
+      const minPick = this.mapData.giant ? this.diameter * 0.12 : 0;
       for (const b of this.named) {
-        if (!b.alive) continue;
+        if (!b.alive || (b.pick < minPick && !b.landmark)) continue;
         const d = Math.hypot(b.x - c.x, b.z - c.z);
         if (d < range) near.push([d, b]);
       }

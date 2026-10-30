@@ -63,6 +63,7 @@ src/game/music.js     배경 음악: 메뉴곡·게임곡을 Web Audio로 직접
 vendor/               Three.js r170 (MIT)
 manifest.webmanifest  앱 설치 정보, sw.js 오프라인 저장, icons/ 앱 아이콘
 tools/fetch_osm.py    OpenStreetMap → data/<구역>.json 변환
+tools/build_seoul.py  서울 전체(11스테이지): 나눠 받은 파일을 합쳐 data/seoul.json
 tools/regions.json    구역별 범위 (지도 범위, 놀이 범위, 시작점)
 data/                 변환된 지도 데이터
 ```
@@ -162,7 +163,13 @@ Overpass API(overpass-api.de)에서 `tools/regions.json`의 범위를 받아 `da
   (봇 기준 350m 약 405초, 전부 먹으면 약 398m)
 - [x] 10스테이지(잠실): 건물 1,466(놀이 구역 안 1,247). 시작점 롯데호텔 앞. 목표 350m, 제한 6분
   (봇 기준 350m 약 505초, 전부 먹으면 약 410m). 롯데월드타워는 `type=building` 관계라 가장 넓은 부분을 바닥으로 쓴다.
-- [ ] 11스테이지(서울 전체) 방식 정하기
+- [x] 11스테이지(서울 전체, FINAL): `tools/build_seoul.py`로 세 파일(건물 서·동, 바탕)을 합쳐 `data/seoul.json` (3MB).
+  15층 이상·45m 이상·이름 있는 건물 약 3만 개 중 500m 칸마다 큰 순서로 9,000개(이름난 곳 7곳은 반드시),
+  한강 다리 30개, 간선도로 7,481, 물·공원 443. 서울 경계선 밖은 버리고 분홍 선으로 그린다.
+  - 시작 서울광장, 공 50m. 목표 1km, 제한 8분 (봇 두 번: 800m 약 350·370초, 1km 약 590·630초, 전부 먹으면 약 1.75km)
+  - 건물 하나가 그 동네 몫까지 키우도록 성장 3배 (`GIANT_GROWTH`), 소품 없음, 이동 격자 25m
+  - 한강 다리: 길이의 45%면 먹을 수 있고(700m~1.3km 공), 성장은 실제 부피 기준. 고가도로는 넣지 않는다 (몇 km짜리 벽이 됨)
+  - 남산서울타워는 높이 정보가 없어 237m 모델로 넣는다 (`landmarks.js`)
 
 ## 스테이지 구역
 
@@ -178,6 +185,7 @@ Overpass API(overpass-api.de)에서 `tools/regions.json`의 범위를 받아 `da
 | 8 도곡동·대치동 | dogok | 도곡역 · 대치동 학원가 · 타워팰리스 | 2,740 × 1,850m |
 | 9 여의도 | yeouido | 국회의사당 ~ 63빌딩 | 2,500 × 1,700m |
 | 10 잠실 | jamsil | 잠실역 · 롯데월드타워 · 석촌호수 | 1,800 × 1,600m |
+| 11 서울 전체 | seoul | 서울광장 (서울특별시 경계 안 전체) | 37.0 × 30.2km |
 
 지도 다운로드 링크: [docs/map-links.md](docs/map-links.md)
 
