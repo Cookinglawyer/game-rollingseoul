@@ -588,6 +588,8 @@ export class Game {
       return true;
     };
     let trapped = false;
+    let bumped = false;
+    const sx0 = pos.x, sz0 = pos.z;
     const stepLen = Math.hypot(this.vel.x, this.vel.z) * rawDt;
     const steps = Math.max(1, Math.ceil(stepLen / (this.r * 0.5)));
     for (let s = 0; s < steps; s++) {
@@ -596,6 +598,7 @@ export class Game {
       const hit = this.world.resolveCircle(pos, wallR, eat, this.drawR);
       trapped ||= this.world.trapped;
       if (hit) {
+        bumped = true;
         const vn = this.vel.x * hit.x + this.vel.z * hit.z;
         if (vn < 0) {
           this.vel.x -= vn * hit.x * 1.3;
@@ -603,6 +606,12 @@ export class Game {
           if (-vn > speed * 0.4) bonkSound();
         }
       }
+    }
+    // 벽에 부딪혔으면 실제로 움직인 만큼만 속도로 친다.
+    // (모서리에 끼었는데 속도만 남아 제자리에서 공이 헛도는 것 방지)
+    if (bumped && rawDt > 0) {
+      this.vel.x = (pos.x - sx0) / rawDt;
+      this.vel.z = (pos.z - sz0) / rawDt;
     }
     this.squeeze = trapped ? Math.max(0.2, this.squeeze * 0.9) : Math.min(1, this.squeeze + rawDt * 0.3);
     pos.y = this.drawR;
