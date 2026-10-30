@@ -6,6 +6,7 @@ import { initAudio, popSound, bonkSound, fanfare, tick } from './audio.js';
 import { playMusic, stopMusic, setMusicSpeed, duckMusic } from './music.js';
 import { Player } from './player.js';
 import { facadeMaterial } from './facades.js';
+import { createSky, pickWeather, sunDirection } from './sky.js';
 
 // 흡수할 때 부피가 얼마나 늘어나는지: 지름³ += GROWTH × 크기³
 const GROWTH = 2.6;
@@ -44,7 +45,6 @@ function driveStep(c, dt) {
     } else break;
   }
 }
-const HAZE = '#d3dbe0'; // 지평선 쪽 뿌연 하늘 = 안개 색
 
 function rng(seed) {
   let s = 0;
@@ -111,23 +111,6 @@ function lumpySphere() {
   return g;
 }
 
-// 위는 옅은 파랑, 지평선은 뿌연 회백색인 서울 하늘
-function skyTexture() {
-  const c = document.createElement('canvas');
-  c.width = 4;
-  c.height = 256;
-  const g = c.getContext('2d');
-  const gr = g.createLinearGradient(0, 0, 0, 256);
-  gr.addColorStop(0, '#8fb1cc');
-  gr.addColorStop(0.55, '#c3d2dd');
-  gr.addColorStop(1, HAZE);
-  g.fillStyle = gr;
-  g.fillRect(0, 0, 4, 256);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
 export class Game {
   constructor(root, stage, onEnd) {
     this.root = root;
@@ -164,6 +147,7 @@ export class Game {
     this.timeLeft = this.stage.timeLimit;
     this.elapsed = 0;
     this.countdown = 2.2;
+    this.feed(`오늘 서울 날씨: ${this.weather.name}`);
     this.running = true;
     this.last = performance.now();
     this._raf = requestAnimationFrame((t) => this.loop(t));
@@ -194,15 +178,19 @@ export class Game {
 
   setupScene() {
     const scene = (this.scene = new THREE.Scene());
-    scene.background = skyTexture();
-    scene.fog = new THREE.Fog(HAZE, 60, 700);
-    scene.add(new THREE.HemisphereLight('#d7e4ee', '#7d7468', 1.15));
-    const sun = (this.sun = new THREE.DirectionalLight('#fff1dc', 2.6));
+    // 판마다 날씨를 골라 하늘·안개·햇빛을 맞춘다 (지평선 색 = 안개 색)
+    const weather = (this.weather = pickWeather());
+    this.sunDir = sunDirection(weather);
+    scene.background = new THREE.Color(weather.horizon);
+    scene.fog = new THREE.Fog(weather.horizon, 60, 700);
+    this.sky = createSky(weather, this.sunDir);
+    scene.add(this.sky);
+    scene.add(new THREE.HemisphereLight('#d7e4ee', '#7d7468', weather.hemi));
+    const sun = (this.sun = new THREE.DirectionalLight(weather.sunColor, weather.sun));
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     sun.shadow.bias = -0.0005;
     scene.add(sun, sun.target);
-    this.sunDir = new THREE.Vector3(-0.45, 1, 0.35).normalize();
     scene.add(this.world.group);
   }
 
@@ -783,6 +771,7 @@ export class Game {
     this.sun.position.set(c.x + this.sunDir.x * ext * 3, this.sunDir.y * ext * 3, c.z + this.sunDir.z * ext * 3);
     this.scene.fog.near = 30 + r * 40;
     this.scene.fog.far = 500 + r * 120;
+    this.sky.follow(this.camera, dt);
   }
 
   render() {

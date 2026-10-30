@@ -13,7 +13,7 @@ export const STAGES = [
     map: 'data/gwanghwamun.json',
     startSize: 0.1,
     goalSize: 250,
-    timeLimit: 360,
+    timeLimit: 300,
     targets: ['동전', '비둘기', '서울 택시', '세종대왕 동상', '이순신 장군 동상', '광화문', '서울시청'],
   },
   {
@@ -25,7 +25,7 @@ export const STAGES = [
     map: 'data/hongdae.json',
     startSize: 0.1,
     goalSize: 220,
-    timeLimit: 360,
+    timeLimit: 300,
     targets: ['동전', '커피컵', '시민', '배달 오토바이', '간선버스', '홍익대학교'],
   },
   {
@@ -37,7 +37,7 @@ export const STAGES = [
     map: 'data/myeongdong.json',
     startSize: 0.1,
     goalSize: 280,
-    timeLimit: 360,
+    timeLimit: 300,
     targets: ['동전', '커피컵', '관광객', '서울 택시', '간선버스', '명동대성당', '롯데백화점'],
   },
   {
@@ -49,7 +49,7 @@ export const STAGES = [
     map: 'data/gangnam.json',
     startSize: 0.1,
     goalSize: 300,
-    timeLimit: 360,
+    timeLimit: 300,
     targets: ['동전', '커피컵', '직장인', '서울 택시', '간선버스', '메리츠타워', '삼성전자 서초사옥'],
   },
   {
@@ -61,7 +61,7 @@ export const STAGES = [
     map: 'data/itaewon.json',
     startSize: 0.1,
     goalSize: 190,
-    timeLimit: 360,
+    timeLimit: 300,
     targets: ['동전', '시민', '관광객', '서울 택시', '간선버스', '해밀턴 호텔', '제일기획'],
   },
   {
@@ -73,7 +73,7 @@ export const STAGES = [
     map: 'data/seongsu.json',
     startSize: 0.1,
     goalSize: 350,
-    timeLimit: 360,
+    timeLimit: 300,
     targets: ['커피컵', '따릉이', '시민', '트럭', '간선버스', '서울숲', '에스타워', '더클래식500'],
   },
   {
@@ -85,7 +85,7 @@ export const STAGES = [
     map: 'data/banpo.json',
     startSize: 0.1,
     goalSize: 380,
-    timeLimit: 360,
+    timeLimit: 300,
     targets: ['시민', '서울 택시', '간선버스', '트럭', '신세계백화점', 'JW 메리어트', '서울성모병원'],
   },
   {
@@ -97,7 +97,7 @@ export const STAGES = [
     map: 'data/dogok.json',
     startSize: 0.1,
     goalSize: 350,
-    timeLimit: 360,
+    timeLimit: 300,
     targets: ['책', '학생', '승용차', 'SUV', '간선버스', '그랑프리백화점', '타워팰리스'],
   },
   {
@@ -109,7 +109,7 @@ export const STAGES = [
     map: 'data/yeouido.json',
     startSize: 0.1,
     goalSize: 330,
-    timeLimit: 360,
+    timeLimit: 300,
     targets: ['커피컵', '직장인', '서울 택시', '간선버스', 'IFC', '파크원', '63빌딩', '국회의사당'],
   },
   {
@@ -121,7 +121,7 @@ export const STAGES = [
     map: 'data/jamsil.json',
     startSize: 0.1,
     goalSize: 350,
-    timeLimit: 360,
+    timeLimit: 300,
     targets: ['시민', '관광객', '서울 택시', '간선버스', '롯데월드', '롯데월드타워'],
   },
   {
@@ -133,7 +133,7 @@ export const STAGES = [
     map: 'data/seoul.json',
     startSize: 50,
     goalSize: 1000,
-    timeLimit: 480,
+    timeLimit: 420,
     targets: ['아파트 단지', '코엑스', '63빌딩', '남산서울타워', '한강 다리', '롯데월드타워'],
     final: true,
   },
