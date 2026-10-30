@@ -370,27 +370,29 @@ export function koreanBuilding(b, bi, { material, tiles }) {
   const wallTile = tiles[hanok ? 'hanokWall' : c.style];
   const shopOff = (hashStr(bi) % 8) / 8; // 건물마다 다른 가게부터
 
-  // 벽: 외벽 무늬는 u를 거꾸로, 1층 간판은 바로 진행해야 바깥에서 글자가 바로 읽힌다
+  // 벽: 외곽선은 시계 방향(polygonArea > 0)이라 각 변의 바깥쪽 법선은 (bz - az, -(bx - ax))
   let run = 0;
   for (let i = 0; i < pts.length; i++) {
     const [ax, az] = L(...pts[i]);
     const [bx, bz] = L(...pts[(i + 1) % pts.length]);
     const len = Math.hypot(bx - ax, bz - az);
     if (len < 0.05) continue;
-    const nx = -(bz - az) / len, nz = (bx - ax) / len;
+    const nx = (bz - az) / len, nz = -(bx - ax) / len;
+    // 바깥에서 볼 때 반시계 방향이 되도록 a → b(위) → b(아래) 순서
     const quad = (y0, y1, u0, u1, v0, v1, t) => {
       push(ax, y0, az, nx, 0, nz, u0, v0, t);
+      push(bx, y1, bz, nx, 0, nz, u1, v1, t);
       push(bx, y0, bz, nx, 0, nz, u1, v0, t);
-      push(bx, y1, bz, nx, 0, nz, u1, v1, t);
       push(ax, y0, az, nx, 0, nz, u0, v0, t);
-      push(bx, y1, bz, nx, 0, nz, u1, v1, t);
       push(ax, y1, az, nx, 0, nz, u0, v1, t);
+      push(bx, y1, bz, nx, 0, nz, u1, v1, t);
     };
+    // 간판 글자가 바깥에서 바로 읽히도록 u는 변 진행 방향과 반대로
     if (shopH) {
       const span = BAY * 8 * 1.15;
-      quad(0, shopH, shopOff + run / span, shopOff + (run + len) / span, 0, 0.999, tiles.shop); // 간판은 정방향
+      quad(0, shopH, -(shopOff + run / span), -(shopOff + (run + len) / span), 0, 0.999, tiles.shop);
     }
-    quad(shopH, top, -run / BAY, -(run + len) / BAY, 0, (top - shopH) / FLOOR, wallTile);
+    quad(shopH, top, run / BAY, (run + len) / BAY, 0, (top - shopH) / FLOOR, wallTile);
     run += len;
   }
 
@@ -406,10 +408,10 @@ export function koreanBuilding(b, bi, { material, tiles }) {
       const [ax, az] = L(...outer[i]), [bx, bz] = L(...outer[j]);
       const [ix, iz] = L(...inner[i]), [jx, jz] = L(...inner[j]);
       const len = Math.hypot(bx - ax, bz - az) || 1;
-      const nx = -(bz - az) / len, nz = (bx - ax) / len;
+      const nx = (bz - az) / len, nz = -(bx - ax) / len; // 바깥쪽
       const t = tiles.hanokRoof;
-      push(ax, h, az, nx, 0.8, nz, 0, 0, t); push(bx, h, bz, nx, 0.8, nz, len / 3, 0, t); push(jx, h + ridge, jz, nx, 0.8, nz, len / 3, 1, t);
-      push(ax, h, az, nx, 0.8, nz, 0, 0, t); push(jx, h + ridge, jz, nx, 0.8, nz, len / 3, 1, t); push(ix, h + ridge, iz, nx, 0.8, nz, 0, 1, t);
+      push(ax, h, az, nx, 0.8, nz, 0, 0, t); push(jx, h + ridge, jz, nx, 0.8, nz, len / 3, 1, t); push(bx, h, bz, nx, 0.8, nz, len / 3, 0, t);
+      push(ax, h, az, nx, 0.8, nz, 0, 0, t); push(ix, h + ridge, iz, nx, 0.8, nz, 0, 1, t); push(jx, h + ridge, jz, nx, 0.8, nz, len / 3, 1, t);
     }
     for (const tr of tris) for (const k of [tr[0], tr[2], tr[1]]) {
       const [x, z] = L(...inner[k]);
