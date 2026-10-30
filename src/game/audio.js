@@ -2,12 +2,16 @@
 let ctx = null;
 
 export function initAudio() {
-  if (ctx) return;
+  if (ctx) {
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
   try {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
   } catch {
     ctx = null;
   }
+  return ctx;
 }
 
 function tone(freq, dur, type = 'sine', gain = 0.15, slide = 1) {

@@ -20,6 +20,7 @@ python3 -m http.server 8000
 | S / ↓ | 뒤로 |
 | A D / ← → | 방향 전환 |
 | Esc / P | 일시정지 |
+| M | 배경 음악 켜기/끄기 (♪ 버튼도 있음, 설정은 저장됨) |
 | 휴대폰 | 화면을 누른 채 드래그 (조이스틱) |
 
 ## 규칙
@@ -47,6 +48,7 @@ src/game/facades.js   한국 건물 외관 (빌라·상가주택·근린생활·
 src/game/landmarks.js 광화문·기념비전·세종대왕 동상·이순신 장군 동상·거북선 모델
 src/game/input.js     키보드 + 터치 조이스틱
 src/game/audio.js     효과음 (Web Audio로 합성, 파일 없음)
+src/game/music.js     배경 음악: 메뉴곡·게임곡을 Web Audio로 직접 연주 (남은 시간 30초부터 빨라짐)
 vendor/               Three.js r170 (MIT)
 tools/fetch_osm.py    OpenStreetMap → data/<구역>.json 변환
 tools/regions.json    구역별 범위 (지도 범위, 놀이 범위, 시작점)

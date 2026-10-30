@@ -3,6 +3,7 @@ import { PROP_TYPES, canPick } from './props.js';
 import { World, loadMap, emptyMap } from './world.js';
 import { Input } from './input.js';
 import { initAudio, popSound, bonkSound, fanfare, tick } from './audio.js';
+import { playMusic, stopMusic, setMusicSpeed, duckMusic } from './music.js';
 import { Player } from './player.js';
 import { facadeMaterial } from './facades.js';
 
@@ -156,6 +157,8 @@ export class Game {
 
     this.input = new Input(this.$('#touch-layer'), this.$('#stick'), this.$('#stick-knob'));
     initAudio();
+    duckMusic(false);
+    playMusic('game');
 
     this.timeLeft = this.stage.timeLimit;
     this.elapsed = 0;
@@ -550,6 +553,7 @@ export class Game {
       const prev = Math.ceil(this.timeLeft);
       this.timeLeft = Math.max(0, this.timeLeft - dt);
       if (this.timeLeft <= 10 && Math.ceil(this.timeLeft) !== prev) tick();
+      setMusicSpeed(this.timeLeft <= 30 ? 1.15 : 1);
     }
 
     this.moveBall(playing ? dt : 0, dt);
@@ -938,10 +942,12 @@ export class Game {
     if (!this.running) return;
     this.paused = p;
     this.last = performance.now();
+    duckMusic(p);
   }
 
   finish(win) {
     this.running = false;
+    stopMusic();
     fanfare(win);
     this.onEnd({
       win,

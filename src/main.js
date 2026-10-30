@@ -1,5 +1,6 @@
 import { STAGES } from './stages.js';
 import { Game, formatSize as formatBall } from './game/Game.js';
+import { playMusic, toggleMusic, isMusicMuted } from './game/music.js';
 
 const SAVE_KEY = 'seoul-ddamukgi-save';
 
@@ -133,6 +134,7 @@ function startGame(stage) {
 function leaveGame() {
   game?.dispose();
   game = null;
+  playMusic('menu');
   bgRunning = true;
   requestAnimationFrame(frame);
   renderStages();
@@ -175,7 +177,34 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) togglePause(true);
 });
 
+// ---------- 배경 음악 ----------
+// 브라우저는 사용자가 한 번 누르기 전에는 소리를 못 내게 하므로 첫 입력 때 시작한다
+function startMenuMusic() {
+  if (current?.id !== 'screen-game') playMusic('menu');
+}
+window.addEventListener('pointerdown', startMenuMusic, { once: true });
+window.addEventListener('keydown', startMenuMusic, { once: true });
+function syncMusicButtons() {
+  for (const b of document.querySelectorAll('.btn-music')) {
+    b.classList.toggle('off', isMusicMuted());
+    b.title = isMusicMuted() ? '음악 켜기 (M)' : '음악 끄기 (M)';
+  }
+}
+for (const b of document.querySelectorAll('.btn-music')) {
+  b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleMusic();
+    syncMusicButtons();
+    b.blur();
+  });
+}
+syncMusicButtons();
+
 window.addEventListener('keydown', (e) => {
+  if (e.key.toLowerCase() === 'm' && !e.repeat) {
+    toggleMusic();
+    syncMusicButtons();
+  }
   if (current?.id === 'screen-title' && (e.key === 'Enter' || e.key === ' ')) {
     e.preventDefault();
     document.getElementById('btn-start').click();

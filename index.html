@@ -10,6 +10,7 @@
 </head>
 <body>
   <canvas id="bg"></canvas>
+  <button class="btn-music btn-music-menu" aria-label="음악 켜기/끄기">♪</button>
 
   <!-- 타이틀 화면 -->
   <section id="screen-title" class="screen active">
@@ -53,7 +54,7 @@
         <button id="btn-back-stages" class="btn-ghost">← 스테이지 목록</button>
         <button id="btn-play" class="btn-start small">굴리기 시작!</button>
       </div>
-      <p class="brief-controls">조작: <b>W/↑</b> 앞으로 · <b>S/↓</b> 뒤로 · <b>A D/← →</b> 방향 전환 · <b>Esc</b> 일시정지<br />휴대폰: 화면을 누른 채 드래그</p>
+      <p class="brief-controls">조작: <b>W/↑</b> 앞으로 · <b>S/↓</b> 뒤로 · <b>A D/← →</b> 방향 전환 · <b>Esc</b> 일시정지 · <b>M</b> 음악 켜기/끄기<br />휴대폰: 화면을 누른 채 드래그</p>
       <p class="toast" id="toast"></p>
     </div>
   </section>
@@ -76,6 +77,7 @@
       </div>
       <div class="hud-right">
         <button id="btn-pause" class="btn-pause" aria-label="일시정지">II</button>
+        <button class="btn-music btn-music-game" aria-label="음악 켜기/끄기">♪</button>
         <span class="hud-label">목표 <b id="hud-goal"></b></span>
         <span id="hud-progress">0%</span>
         <div class="hud-bar"><div id="hud-bar"></div></div>
