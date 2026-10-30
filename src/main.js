@@ -379,3 +379,9 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 show('screen-title');
+
+// ---------- 앱 설치 (홈 화면에 추가) ----------
+// http(s)로 열었을 때만. 미리보기 등 서비스 워커를 못 쓰는 곳에서는 조용히 넘어간다.
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}

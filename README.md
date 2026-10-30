@@ -12,6 +12,17 @@ python3 -m http.server 8000
 # 브라우저에서 http://localhost:8000
 ```
 
+## 앱으로 설치
+
+GitHub Pages 주소(https://cookinglawyer.github.io/game-rollingseoul/)로 열면 홈 화면에 앱처럼 설치할 수 있다.
+설치하면 주소창 없이 전체 화면으로 열리고, 한 번 연 화면·플레이한 스테이지 지도는 인터넷이 없어도 열린다.
+
+- 안드로이드 크롬: 메뉴(⋮) → **앱 설치** 또는 **홈 화면에 추가**
+- 아이폰 사파리: 공유 버튼(□↑) → **홈 화면에 추가**
+- PC 크롬·엣지: 주소창 오른쪽의 설치 아이콘(모니터+↓) → **설치**
+
+`manifest.webmanifest`(앱 이름·아이콘), `sw.js`(오프라인 저장, 항상 새 버전 먼저), `icons/`.
+
 ## 조작
 
 | 키 | 동작 |
@@ -50,6 +61,7 @@ src/game/input.js     키보드 + 터치 조이스틱
 src/game/audio.js     효과음 (Web Audio로 합성, 파일 없음)
 src/game/music.js     배경 음악: 메뉴곡·게임곡을 Web Audio로 직접 연주 (남은 시간 30초부터 빨라짐)
 vendor/               Three.js r170 (MIT)
+manifest.webmanifest  앱 설치 정보, sw.js 오프라인 저장, icons/ 앱 아이콘
 tools/fetch_osm.py    OpenStreetMap → data/<구역>.json 변환
 tools/regions.json    구역별 범위 (지도 범위, 놀이 범위, 시작점)
 data/                 변환된 지도 데이터
