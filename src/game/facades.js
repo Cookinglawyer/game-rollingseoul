@@ -331,6 +331,7 @@ function classify(b, bi) {
   let h = b.h;
   if (h === 14) h = FLOOR * (3 + (hsh % 3)) + 0.8; // 높이 정보 없는 건물(기본값 14m): 3~5층으로
   const area = Math.abs(polygonArea(b.p));
+  if (h >= 30 && b.k === 'apt') return { style: hsh % 2 ? 'white' : 'beige', h }; // 아파트: 흰·베이지 외벽
   if (h >= 30) return { style: hsh % 3 ? 'glass' : 'commercial', h };
   if (area > 900) return { style: 'commercial', h, shop: true };
   const kinds = ['brick', 'brick', 'beige', 'white', 'commercial'];

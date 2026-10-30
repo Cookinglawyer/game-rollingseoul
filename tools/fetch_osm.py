@@ -90,6 +90,16 @@ def is_underground(tags):
     return tags.get('location') == 'underground'
 
 
+def is_elevated(tags):
+    # 고가 역사(예: 성수역 3층 역사)는 아래 도로를 막지 않도록 뺀다
+    if tags.get('building') not in ('train_station', 'transportation'):
+        return False
+    try:
+        return float(tags.get('layer', '0')) >= 1
+    except ValueError:
+        return False
+
+
 def parse_height(tags):
     for key in ('height', 'building:height'):
         if key in tags:
@@ -141,6 +151,8 @@ def convert(raw, region):
         b = {'p': pts, 'h': round(parse_height(tags), 1)}
         if is_traditional(tags):
             b['k'] = 'traditional'
+        elif tags.get('building') in ('apartments', 'residential'):
+            b['k'] = 'apt'
         for key, short in (('building:colour', 'c'), ('roof:colour', 'rc')):
             if tags.get(key, '').startswith('#'):
                 b[short] = tags[key]
@@ -156,7 +168,7 @@ def convert(raw, region):
         if len(pts) < 2:
             continue
         closed = way['nodes'][0] == way['nodes'][-1]
-        if 'building' in tags and tags.get('building') != 'no' and not is_underground(tags):
+        if 'building' in tags and tags.get('building') != 'no' and not is_underground(tags) and not is_elevated(tags):
             if closed:
                 add_building(pts, tags)
         elif 'highway' in tags:
@@ -201,7 +213,7 @@ def convert(raw, region):
 
     # 멀티폴리곤 건물(relation): 바깥 테두리만 사용
     for el in raw['elements']:
-        if el['type'] != 'relation' or 'building' not in el.get('tags', {}) or is_underground(el['tags']):
+        if el['type'] != 'relation' or 'building' not in el.get('tags', {}) or is_underground(el['tags']) or is_elevated(el['tags']):
             continue
         for m in el.get('members', []):
             if m['type'] == 'way' and m.get('role') == 'outer' and m['ref'] in ways:
