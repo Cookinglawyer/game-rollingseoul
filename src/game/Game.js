@@ -320,6 +320,14 @@ export class Game {
           extra = { walkDir: Math.atan2(-dn, dx) };
         } else if (type.place === 'tree' && treeIdx < treePool.length) {
           [x, z] = treePool[treeIdx++];
+        } else if (type.place === 'tree' && carRoads.segs.length) {
+          // 지도에 없는 나머지 가로수는 차도 가장자리 인도에 줄지어 심는다
+          const seg = carRoads.pick();
+          const u = R(), side = R() < 0.5 ? 1 : -1;
+          const dx = (seg.b[0] - seg.a[0]) / seg.len, dn = (seg.b[1] - seg.a[1]) / seg.len;
+          const off = side * (seg.w / 2 + 1.2);
+          x = seg.a[0] + dx * seg.len * u + dn * off;
+          z = -(seg.a[1] + dn * seg.len * u - dx * off);
         } else if (!Number.isFinite(rMax)) {
           // 광장 등 지도 아무 곳
           x = x0 + R() * (x1 - x0);
@@ -336,7 +344,7 @@ export class Game {
         if (!free(x, z, type.foot)) continue;
         if (world.isBlocked(x, z, type.foot + 0.3)) continue;
         if (spread && Math.hypot(x - sx, z - sz) < rMin) continue;
-        if (type.place === 'crowd' && onCarRoad(x, z)) continue; // 사람은 차도 말고 인도·광장에
+        if ((type.place === 'crowd' || type.place === 'tree') && onCarRoad(x, z)) continue; // 사람·나무는 차도 말고 인도·광장에
         const it = { type, x, z, rot, foot: type.foot, alive: true, idx: placed.length, t: R() * 5, vx: 0, vz: 0, ...extra };
         placed.push(it);
         occupy(it);

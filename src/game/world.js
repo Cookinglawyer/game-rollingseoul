@@ -331,6 +331,7 @@ export class World {
           const pt = (map.points || []).find((q) => q.n.includes(st.osm));
           [e, n] = pt ? pt.p : this.project(st.lonlat);
         }
+        if (!this.inPlay(e, -n)) continue;
         placed[st.name] = [e, n];
         const { geom, h, w, d } = st.build();
         const mesh = new THREE.Mesh(geom, landmarkMaterial);
