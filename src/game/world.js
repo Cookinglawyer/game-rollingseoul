@@ -4,6 +4,8 @@ import * as THREE from '../../vendor/three.module.min.js';
 import { LANDMARK_BUILDINGS, STATUES } from './landmarks.js';
 
 const ROAD_COLOR = '#55565c';
+const BLD_CELL = 32; // 건물 위치 색인 칸 크기(m)
+const EMPTY = [];
 const AREA_COLORS = {
   plaza: '#d9cbb4',
   grass: '#8fc46a',
@@ -321,6 +323,7 @@ export class World {
     // 건물: 각각 메시 하나 + 충돌 선분. 공보다 충분히 작아지면 먹을 수 있다.
     this.grid = new SegmentGrid(8);
     this.buildings = [];
+    this.bgrid = new Map();
     const material = new THREE.MeshLambertMaterial({ vertexColors: true, map: brickTexture() });
     const landmarkMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
     (map.buildings || []).forEach((b, bi) => {
@@ -377,12 +380,32 @@ export class World {
     };
     this.buildings.push(bld);
     this.group.add(mesh);
+    // 위치 색인: 바닥 사각형이 걸치는 칸마다 등록
+    const c = BLD_CELL;
+    for (let i = Math.floor(bb[0] / c); i <= Math.floor(bb[2] / c); i++) {
+      for (let j = Math.floor(bb[1] / c); j <= Math.floor(bb[3] / c); j++) {
+        const k = i * 100003 + j;
+        if (!this.bgrid.has(k)) this.bgrid.set(k, []);
+        this.bgrid.get(k).push(bld);
+      }
+    }
     for (let i = 0; i < pts.length; i++) {
       const a = pts[i], c = pts[(i + 1) % pts.length];
       const seg = [a[0], -a[1], c[0], -c[1]];
       seg.b = bld;
       this.grid.add(seg);
     }
+  }
+
+  // (동, 북) 지점 근처(margin 포함)에 걸친 건물들. 건물이 수천 개라 전부 훑지 않도록.
+  buildingsNear(x, n, margin = 0) {
+    const c = BLD_CELL;
+    const i0 = Math.floor((x - margin) / c), i1 = Math.floor((x + margin) / c);
+    const j0 = Math.floor((n - margin) / c), j1 = Math.floor((n + margin) / c);
+    if (i0 === i1 && j0 === j1) return this.bgrid.get(i0 * 100003 + j0) || EMPTY;
+    const out = new Set();
+    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) for (const b of this.bgrid.get(i * 100003 + j) || EMPTY) out.add(b);
+    return out;
   }
 
   // 경위도 → 이 지도의 [동, 북] 미터 (변환기와 같은 근사)
@@ -394,7 +417,7 @@ export class World {
   // 건물 안쪽(여유 margin 포함)인지
   isBlocked(x, z, margin = 0) {
     const n = -z;
-    for (const f of this.buildings) {
+    for (const f of this.buildingsNear(x, n, margin)) {
       if (!f.alive || f.low) continue;
       const bb = f.bb;
       if (x < bb[0] - margin || x > bb[2] + margin || n < bb[1] - margin || n > bb[3] + margin) continue;
