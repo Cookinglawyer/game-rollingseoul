@@ -29,10 +29,13 @@ function isUnlocked(index) {
 let current = null;
 function show(id) {
   const next = document.getElementById(id);
+  if (next === current) return; // 같은 화면으로 '전환'하면 아래 타이머가 그 화면을 숨겨 버린다
   if (current) {
     current.classList.remove('visible');
     const prev = current;
-    setTimeout(() => prev.classList.remove('active'), 350);
+    setTimeout(() => {
+      if (prev !== current) prev.classList.remove('active');
+    }, 350);
   }
   next.classList.add('active');
   requestAnimationFrame(() => next.classList.add('visible'));

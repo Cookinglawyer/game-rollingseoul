@@ -120,7 +120,10 @@ export class Game {
 
   // ---------- 장면 ----------
   setupRenderer() {
-    const canvas = this.$('#game-canvas');
+    // 다시 시작할 때 이전 게임의 WebGL 화면을 이어 쓰면 멈추므로, 매번 새 캔버스로 바꾼다
+    const old = this.$('#game-canvas');
+    const canvas = old.cloneNode(false);
+    old.replaceWith(canvas);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.shadowMap.enabled = true;
@@ -776,5 +779,6 @@ export class Game {
       });
     }
     this.renderer?.dispose();
+    this.renderer?.forceContextLoss(); // GPU 자원을 바로 돌려준다
   }
 }
