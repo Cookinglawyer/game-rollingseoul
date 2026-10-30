@@ -16,6 +16,7 @@ const CORE_RATIO = 0.7;
 const PLACE_R = 4.5;
 const TURN_RATE = 1.3; // 라디안/초
 const START_CLEAR = 20; // 인파·차량을 두지 않는 시작점 반경(m)
+const MAX_LABELS = 20; // 한 번에 띄우는 건물 이름 말풍선 수
 
 // 차: 도로 폴리라인의 seg번째 구간에서 시작점으로부터 s만큼, dir 방향의 오른쪽 차선(lane)
 function drivePose(c) {
@@ -520,6 +521,7 @@ export class Game {
     this.last = now;
     if (!this.paused) this.update(dt);
     this.render();
+    this.updateLabels(dt);
   }
 
   update(dt) {
@@ -768,6 +770,44 @@ export class Game {
     this.renderer.render(this.scene, this.camera);
   }
 
+  // 공 근처의 이름 있는 건물 위에 이름 말풍선. 0.25초마다 가까운 순으로 고르고, 위치는 매 프레임 맞춘다.
+  updateLabels(dt) {
+    if (!this.labels) return;
+    const c = this.ball.position;
+    const range = Math.max(120, this.diameter * 8);
+    this._labelPick -= dt;
+    if (this._labelPick <= 0) {
+      this._labelPick = 0.25;
+      const near = [];
+      for (const b of this.named) {
+        if (!b.alive) continue;
+        const d = Math.hypot(b.x - c.x, b.z - c.z);
+        if (d < range) near.push([d, b]);
+      }
+      near.sort((a, b) => a[0] - b[0]);
+      this.labels.forEach((l, i) => {
+        const b = near[i] && near[i][1];
+        if (l.b !== b) {
+          l.b = b || null;
+          if (b) l.el.textContent = b.name;
+        }
+      });
+    }
+    const w = this.root.clientWidth, h = this.root.clientHeight;
+    const v = this._v;
+    for (const l of this.labels) {
+      const b = l.b;
+      if (!b || !b.alive) { l.el.hidden = true; continue; }
+      v.set(b.x, b.h + 3, b.z).project(this.camera);
+      if (v.z > 1 || v.x < -1.1 || v.x > 1.1 || v.y < -1.1 || v.y > 1.1) { l.el.hidden = true; continue; }
+      const d = Math.hypot(b.x - c.x, b.z - c.z);
+      l.el.hidden = false;
+      l.el.style.transform = `translate(${((v.x + 1) / 2) * w}px, ${((1 - v.y) / 2) * h}px) translate(-50%, -100%)`;
+      l.el.style.opacity = String(Math.max(0.25, 1 - d / range));
+      l.el.classList.toggle('edible', this.canEatBuilding(b));
+    }
+  }
+
   // ---------- HUD ----------
   setupHud() {
     this.$('#hud-stage').textContent = this.stage.name;
@@ -776,6 +816,21 @@ export class Game {
     this.$('#countdown').hidden = false;
     this.$('#feed').innerHTML = '';
     this.$('#banner').hidden = true;
+
+    // 건물 이름 말풍선: 이름 있는 건물 목록과, 재사용할 말풍선 요소들
+    this.named = this.world.buildings.filter((b) => b.name);
+    const box = this.$('#labels');
+    box.innerHTML = '';
+    this.labels = [];
+    for (let i = 0; i < MAX_LABELS; i++) {
+      const el = document.createElement('div');
+      el.className = 'bld-label';
+      el.hidden = true;
+      box.appendChild(el);
+      this.labels.push({ el, b: null });
+    }
+    this._labelPick = 0;
+    this._v = new THREE.Vector3();
 
     // 미니맵 배경은 한 번만 그린다
     const mm = (this.minimap = this.$('#minimap'));

@@ -492,3 +492,32 @@ html, body {
   white-space: nowrap;
   pointer-events: none;
 }
+
+/* 건물 이름 말풍선 */
+.labels { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.bld-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 3px 9px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.92);
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  box-shadow: 0 2px 0 rgba(43, 26, 61, 0.35);
+  will-change: transform;
+}
+.bld-label::after { /* 말풍선 꼬리 */
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  margin-left: -6px;
+  border: 6px solid transparent;
+  border-top-color: var(--ink);
+  border-bottom: 0;
+}
+.bld-label.edible { color: #fff; background: var(--pink); }
