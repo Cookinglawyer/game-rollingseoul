@@ -72,14 +72,26 @@ class Dem:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('region')
-    ap.add_argument('--exag', type=float, default=1.8, help='높이 과장 배수')
+    ap.add_argument('--exag', type=float, help='높이 과장 배수 (기본 1.8)')
     ap.add_argument('--cell', type=float, help='격자 간격(m). 없으면 5m부터, 꼭짓점이 20만 개를 넘지 않게 넓힌다')
-    ap.add_argument('--zoom', type=int, default=14, help='고도 타일 확대 단계 (14 ≈ 7.6m, 12 ≈ 30m)')
-    ap.add_argument('--flatten', type=float, default=70, help='이보다 좁은 봉우리(건물)를 깎는 반경(m)')
+    ap.add_argument('--zoom', type=int, help='고도 타일 확대 단계 (기본 14 ≈ 7.6m, 12 ≈ 30m)')
+    ap.add_argument('--flatten', type=float, help='이보다 좁은 봉우리(건물)를 깎는 반경(m, 기본 70)')
+    ap.add_argument('--smooth', type=float, help='깎은 뒤 넓게 다듬는 반경(m, 기본 0). 깎인 고원 가장자리의 턱을 없앤다')
+    ap.add_argument('--flat', action='store_true', help='지형을 빼고 평지로')
     args = ap.parse_args()
+    # 스테이지별 설정(tools/terrain.json)을 기본값으로, 명령줄 값이 우선
+    conf = json.loads((ROOT / 'tools' / 'terrain.json').read_text(encoding='utf-8')).get(args.region, {})
+    for key, default in (('exag', 1.8), ('cell', None), ('zoom', 14), ('flatten', 70), ('smooth', 0), ('flat', False)):
+        if getattr(args, key) in (None, False):
+            setattr(args, key, conf.get(key, default))
 
     path = ROOT / 'data' / f'{args.region}.json'
     data = json.loads(path.read_text(encoding='utf-8'))
+    if args.flat:
+        data.pop('terrain', None)
+        path.write_text(json.dumps(data, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+        print(f'{path.relative_to(ROOT)}: 평지 (지형 없음)')
+        return
     proj = F.Projector(*data['origin'])
 
     # 놀이 구역보다 300m 넓게 (멀리 보이는 곳까지)
@@ -109,6 +121,27 @@ def main():
         rows = [[pick(r[max(0, i - k):i + k + 1]) for i in range(gw)] for r in g]
         return [[pick([rows[jj][i] for jj in range(max(0, j - k), min(gh, j + k + 1))]) for i in range(gw)] for j in range(gh)]
     grid = sweep(sweep(grid, min), max)
+
+    # 넓게 다듬기: 반경 smooth m 상자 평균 세 번 (가우스 비슷). 깎인 고원의 가장자리가 갑자기 가파른 턱이 되지 않게.
+    ks = round(args.smooth / cell)
+    if ks:
+        def blur_rows(g):
+            out = []
+            for r in g:
+                acc = [0]
+                for v in r:
+                    acc.append(acc[-1] + v)
+                out.append([(acc[min(gw, i + ks + 1)] - acc[max(0, i - ks)]) / (min(gw, i + ks + 1) - max(0, i - ks)) for i in range(gw)])
+            return out
+
+        def transpose(g):
+            return [list(c) for c in zip(*g)]
+        for _ in range(3):
+            grid = blur_rows(grid)
+            gw, gh = gh, gw
+            grid = blur_rows(transpose(grid))
+            gw, gh = gh, gw
+            grid = transpose(grid)
 
     # 잔물결을 줄이려고 3×3 평균 두 번
     for _ in range(2):
