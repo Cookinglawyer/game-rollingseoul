@@ -66,6 +66,7 @@ vendor/               Three.js r170 (MIT)
 manifest.webmanifest  앱 설치 정보, sw.js 오프라인 저장, icons/ 앱 아이콘
 tools/fetch_osm.py    OpenStreetMap → data/<구역>.json 변환
 tools/build_seoul.py  서울 전체(11스테이지): 나눠 받은 파일을 합쳐 data/seoul.json
+tools/fetch_terrain.py 지도에 실제 지형 높이 넣기 (AWS Terrain Tiles)
 tools/regions.json    구역별 범위 (지도 범위, 놀이 범위, 시작점)
 data/                 변환된 지도 데이터
 ```
@@ -93,6 +94,19 @@ Overpass API(overpass-api.de)에서 `tools/regions.json`의 범위를 받아 `da
 - 건물: 외곽선 + 높이(`height` → `building:levels` × 3.3m → 기본값 14m)
 - 도로: 중심선 + 폭(`lanes` × 3.3m 또는 도로 등급별 기본값)
 - 광장/공원/물, 가로수(`natural=tree`, `tree_row`)
+
+## 지형 (고저차)
+
+`python3 tools/fetch_terrain.py <구역> [--exag 1.8] [--cell 5]`
+AWS Terrain Tiles(Terrarium, 공개 고도 데이터, z14 ≈ 7.6m 간격)에서 높이를 받아 `data/<구역>.json`의 `terrain`에 넣는다.
+가장 낮은 곳이 0, 높이는 1.8배 과장. `fetch_osm.py`로 지도를 다시 만들면 지워지므로 그 뒤에 다시 실행한다.
+
+- 지금은 5스테이지(이태원·한남동)만 시범 적용: 해발 14~117m → 게임 높이 0~186m.
+- 땅: 5m 격자 메시. 도로·공원 면은 땅 격자의 세로·가로·대각선으로 잘라 땅과 같은 평면에 얹는다 (어긋나 묻히거나 깜빡이지 않게).
+- 건물: 바닥 외곽선에서 가장 낮은 곳에 세운다 (비탈 위쪽은 땅에 묻힌다). 소품·사람·차·캐릭터·공·카메라는 땅 높이를 따른다.
+- 비탈: 내리막 쪽으로 가속 (`Game.js`의 `SLOPE_PULL`, 경사는 최대 30%까지만 계산, 공이 클수록 약하게: 지름 40m면 절반).
+- 봇 기준 (이태원): 200m 약 420초 (지형 없을 때 약 535초), 전부 먹으면 약 232m로 같다.
+- 지형이 없는 지도는 예전처럼 평평하다.
 
 ## 밸런스 메모
 

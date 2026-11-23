@@ -18,6 +18,10 @@ const CORE_RATIO = 0.7;
 // 물건은 반지름 이 정도 공이 시작점에서 갈 수 있는 곳에만 놓는다
 const PLACE_R = 4.5;
 const TURN_RATE = 1.3; // 라디안/초
+// 비탈: 경사(높이/거리, 최대 SLOPE_MAX까지)에 최고 속도의 SLOPE_PULL 배를 곱한 만큼 내리막 쪽으로 가속.
+// 공이 클수록 언덕을 덜 탄다 (지름 40m면 절반). 지형이 있는 스테이지만.
+const SLOPE_PULL = 1.5;
+const SLOPE_MAX = 0.3;
 const START_CLEAR = 20; // 인파·차량을 두지 않는 시작점 반경(m)
 const MAX_LABELS = 20; // 한 번에 띄우는 건물 이름 말풍선 수
 
@@ -361,7 +365,7 @@ export class Game {
       mesh.receiveShadow = true;
       for (const it of placed) {
         q.setFromAxisAngle(up, it.rot);
-        mesh.setMatrixAt(it.idx, m4.compose(p.set(it.x, 0, it.z), q, one));
+        mesh.setMatrixAt(it.idx, m4.compose(p.set(it.x, world.groundAt(it.x, it.z), it.z), q, one));
         it.mesh = mesh;
       }
       mesh.instanceMatrix.needsUpdate = true;
@@ -379,7 +383,7 @@ export class Game {
     const q = this._q ||= new THREE.Quaternion();
     const up = this._up ||= new THREE.Vector3(0, 1, 0);
     q.setFromAxisAngle(up, it.rot);
-    m4.compose(new THREE.Vector3(it.x, it.hop || 0, it.z), q, new THREE.Vector3(scale, scale, scale));
+    m4.compose(new THREE.Vector3(it.x, this.world.groundAt(it.x, it.z) + (it.hop || 0), it.z), q, new THREE.Vector3(scale, scale, scale));
     it.mesh.setMatrixAt(it.idx, m4);
     it.mesh.instanceMatrix.needsUpdate = true;
   }
@@ -391,7 +395,7 @@ export class Game {
     this.r = this.diameter / 2;
     this.drawR = this.r;
     this.ball = new THREE.Group();
-    this.ball.position.set(start[0], this.r, start[1]);
+    this.ball.position.set(start[0], this.world.groundAt(start[0], start[1]) + this.r, start[1]);
     this.core = new THREE.Mesh(
       lumpySphere(),
       new THREE.MeshLambertMaterial({ map: ballTexture() }),
@@ -430,7 +434,7 @@ export class Game {
     this.world.group.remove(mesh);
     // 건물은 공보다 크게 삐져나와 화면을 가리지 않도록 조금 줄여서 붙인다
     mesh.scale.setScalar(0.8);
-    this.stickToBall(mesh, new THREE.Vector3(b.x - c.x, Math.min(b.h / 2, c.y) - c.y, b.z - c.z), 0, b.pick * 0.8);
+    this.stickToBall(mesh, new THREE.Vector3(b.x - c.x, Math.min(b.base + b.h / 2, c.y) - c.y, b.z - c.z), 0, b.pick * 0.8);
 
     // 서울 전체는 실제 건물 중 큰 것만 넣었으므로 하나가 그 동네 몫까지 키운다
     const growth = this.mapData.giant ? GIANT_GROWTH : BUILDING_GROWTH;
@@ -452,7 +456,7 @@ export class Game {
     const c = this.ball.position;
     const mesh = new THREE.Mesh(it.type.geom, it.mesh.material);
     mesh.castShadow = it.type.h > 0.05;
-    this.stickToBall(mesh, new THREE.Vector3(it.x - c.x, Math.min(it.type.h / 2, c.y) - c.y, it.z - c.z), it.rot, it.type.pick);
+    this.stickToBall(mesh, new THREE.Vector3(it.x - c.x, Math.min(this.world.groundAt(it.x, it.z) + it.type.h / 2, c.y) - c.y, it.z - c.z), it.rot, it.type.pick);
 
     // 성장
     this.diameter = Math.cbrt(this.diameter ** 3 + GROWTH * it.type.pick ** 3);
@@ -559,6 +563,8 @@ export class Game {
     this.updateMovers(dt);
     this.collide();
     this.player.update(dt, this.ball.position, this.drawR, this.heading, Math.hypot(this.vel.x, this.vel.z));
+    const pg = this.player.group.position;
+    pg.y = this.world.groundAt(pg.x, pg.z);
     this.updateCamera(dt);
     this.updateHud(dt);
 
@@ -578,6 +584,16 @@ export class Game {
     const k = 1 - Math.exp(-rawDt * (inp.forward ? 2.2 : 1.4));
     this.vel.x += ((dt ? tx : 0) - this.vel.x) * k;
     this.vel.z += ((dt ? tz : 0) - this.vel.z) * k;
+    // 비탈에서는 내리막 쪽으로 굴러간다 (공이 클수록 넓은 범위의 경사를 본다)
+    if (this.world.terrain && dt) {
+      const b = this.ball.position, e = Math.max(2, this.r * 0.6), W = this.world;
+      const gx = (W.groundAt(b.x + e, b.z) - W.groundAt(b.x - e, b.z)) / (2 * e);
+      const gz = (W.groundAt(b.x, b.z + e) - W.groundAt(b.x, b.z - e)) / (2 * e);
+      const g = Math.hypot(gx, gz), cap = g > SLOPE_MAX ? SLOPE_MAX / g : 1;
+      const pull = speed * SLOPE_PULL * cap / (1 + this.diameter / 40) * dt;
+      this.vel.x -= gx * pull;
+      this.vel.z -= gz * pull;
+    }
 
     // 보이는 반지름은 부드럽게 커진다
     this.drawR += (this.r - this.drawR) * (1 - Math.exp(-rawDt * 6));
@@ -623,7 +639,7 @@ export class Game {
       this.vel.z = (pos.z - sz0) / rawDt;
     }
     this.squeeze = trapped ? Math.max(0.2, this.squeeze * 0.9) : Math.min(1, this.squeeze + rawDt * 0.3);
-    pos.y = this.drawR;
+    pos.y = this.world.groundAt(pos.x, pos.z) + this.drawR;
 
     // 구르기
     const v = Math.hypot(this.vel.x, this.vel.z);
@@ -747,13 +763,18 @@ export class Game {
     const height = r * 2.6 + 0.22;
     const c = this.ball.position;
     const cam = this.camera.position;
-    const want = new THREE.Vector3(c.x - Math.sin(this.camYaw) * dist, height, c.z - Math.cos(this.camYaw) * dist);
+    const floor = c.y - this.drawR; // 공 밑 땅 높이
+    const want = new THREE.Vector3(c.x - Math.sin(this.camYaw) * dist, floor + height, c.z - Math.cos(this.camYaw) * dist);
     // 건물 안으로 카메라가 들어가지 않게 당겨오기
     for (let i = 0; i < 6 && this.world.isBlocked(want.x, want.z, 0.2); i++) {
       want.x = c.x + (want.x - c.x) * 0.7;
       want.z = c.z + (want.z - c.z) * 0.7;
     }
-    cam.lerp(want, 1 - Math.exp(-dt * 8));
+    // 오르막 뒤쪽 땅에 카메라가 묻히지 않게
+    want.y = Math.max(want.y, this.world.groundAt(want.x, want.z) + 0.25 + r * 0.5);
+    // 첫 프레임은 바로 제자리로 (언덕 위에서 시작하면 땅속에서 따라 올라오는 게 보이므로)
+    if (this._camReady) cam.lerp(want, 1 - Math.exp(-dt * 8));
+    else { cam.copy(want); this._camReady = true; }
     this.camera.near = Math.max(0.005, r * 0.08);
     this.camera.far = Math.max(3000, (500 + r * 120) * 1.05); // 안개 끝까지
     this.camera.updateProjectionMatrix();
@@ -767,8 +788,8 @@ export class Game {
     sh.near = 0.1;
     sh.far = ext * 6;
     sh.updateProjectionMatrix();
-    this.sun.target.position.set(c.x, 0, c.z);
-    this.sun.position.set(c.x + this.sunDir.x * ext * 3, this.sunDir.y * ext * 3, c.z + this.sunDir.z * ext * 3);
+    this.sun.target.position.set(c.x, floor, c.z);
+    this.sun.position.set(c.x + this.sunDir.x * ext * 3, floor + this.sunDir.y * ext * 3, c.z + this.sunDir.z * ext * 3);
     this.scene.fog.near = 30 + r * 40;
     this.scene.fog.far = 500 + r * 120;
     this.sky.follow(this.camera, dt);
@@ -808,7 +829,7 @@ export class Game {
     for (const l of this.labels) {
       const b = l.b;
       if (!b || !b.alive) { l.el.hidden = true; continue; }
-      v.set(b.x, b.h + 3, b.z).project(this.camera);
+      v.set(b.x, b.base + b.h + 3, b.z).project(this.camera);
       if (v.z > 1 || v.x < -1.1 || v.x > 1.1 || v.y < -1.1 || v.y > 1.1) { l.el.hidden = true; continue; }
       const d = Math.hypot(b.x - c.x, b.z - c.z);
       l.el.hidden = false;

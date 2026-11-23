@@ -53,6 +53,110 @@ function faceUp(pos, uv) {
   }
 }
 
+// ---------- 지형 ----------
+// 지도에 terrain(격자 높이)이 있으면 땅·도로·건물·공이 그 높이를 따른다. 없으면 모두 높이 0.
+// 높이는 바닥 메시와 같은 삼각형 분할로 보간해서, 그 위에 얹는 것들이 땅과 어긋나지 않게 한다.
+class Terrain {
+  constructor({ x0, z0, cell, w, h, data }) {
+    Object.assign(this, { x0, z0, cell, w, h });
+    const bin = atob(data);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const raw = new Uint16Array(bytes.buffer);
+    this.hgt = new Float32Array(raw.length);
+    for (let i = 0; i < raw.length; i++) this.hgt[i] = raw[i] / 100;
+  }
+
+  heightAt(x, z) {
+    const { w, h, hgt } = this;
+    let fx = Math.min(w - 1.0001, Math.max(0, (x - this.x0) / this.cell));
+    let fz = Math.min(h - 1.0001, Math.max(0, (z - this.z0) / this.cell));
+    const i = Math.floor(fx), j = Math.floor(fz);
+    const tx = fx - i, tz = fz - j, k = j * w + i;
+    const a = hgt[k], b = hgt[k + 1], c = hgt[k + w], d = hgt[k + w + 1];
+    // 칸을 (i+1, j)–(i, j+1) 대각선으로 나눈 두 삼각형
+    return tx + tz <= 1 ? a + (b - a) * tx + (c - a) * tz : d + (c - d) * (1 - tx) + (b - d) * (1 - tz);
+  }
+
+  // 바닥 메시: 보도블록 무늬는 월드 좌표 기준(2.5m = 한 장)
+  mesh(tex) {
+    const { w, h, x0, z0, cell, hgt } = this;
+    const pos = new Float32Array(w * h * 3), uv = new Float32Array(w * h * 2);
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const k = j * w + i, x = x0 + i * cell, z = z0 + j * cell;
+      pos.set([x, hgt[k], z], k * 3);
+      uv.set([x / 2.5, -z / 2.5], k * 2);
+    }
+    const idx = [];
+    for (let j = 0; j < h - 1; j++) for (let i = 0; i < w - 1; i++) {
+      const a = j * w + i, b = a + 1, c = a + w, d = c + 1;
+      idx.push(a, c, b, b, c, d);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: tex }));
+    m.receiveShadow = true;
+    return m;
+  }
+}
+let TERRAIN = null; // 지금 만드는 World의 지형 (도로·구역 만들 때 씀)
+
+// 볼록 다각형을 f(v) = c 직선으로 잘라 양쪽 조각을 돌려준다 (꼭짓점 순서 유지)
+function splitPoly(poly, f, c) {
+  const a = [], b = [];
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i], q = poly[(i + 1) % poly.length];
+    const fp = f(p) - c, fq = f(q) - c;
+    if (fp <= 0) a.push(p);
+    if (fp >= 0) b.push(p); // 선 위의 꼭짓점은 양쪽 모두
+    if ((fp < 0 && fq > 0) || (fp > 0 && fq < 0)) {
+      const t = fp / (fp - fq);
+      const m = [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t];
+      a.push(m); b.push(m);
+    }
+  }
+  return [a, b].filter((x) => x.length >= 3);
+}
+
+// 평평하게 만든 삼각형들(y = 띄울 높이)을 지형 위에 얹는다.
+// 땅 격자의 세로·가로·대각선으로 잘라 조각마다 땅 삼각형 하나 안에 들게 하므로, 땅과 정확히 같은 평면이 된다.
+function drape(pos) {
+  const T = TERRAIN;
+  if (!T) return pos;
+  const out = [];
+  const fx = (v) => (v[0] - T.x0) / T.cell, fz = (v) => (v[2] - T.z0) / T.cell;
+  const cut = (pieces, f, lo, hi) => {
+    const next = [];
+    for (const poly of pieces) {
+      let parts = [poly];
+      const vals = poly.map(f);
+      const k0 = Math.max(lo, Math.ceil(Math.min(...vals))), k1 = Math.min(hi, Math.floor(Math.max(...vals)));
+      for (let k = k0; k <= k1; k++) {
+        const keep = [];
+        for (const q of parts) keep.push(...splitPoly(q, f, k));
+        parts = keep;
+      }
+      next.push(...parts);
+    }
+    return next;
+  };
+  for (let i = 0; i < pos.length; i += 9) {
+    let pieces = [[pos.slice(i, i + 3), pos.slice(i + 3, i + 6), pos.slice(i + 6, i + 9)]];
+    pieces = cut(pieces, fx, 1, T.w - 2);
+    pieces = cut(pieces, fz, 1, T.h - 2);
+    pieces = cut(pieces, (v) => fx(v) + fz(v), 1, T.w + T.h - 3);
+    for (const poly of pieces) {
+      for (let k = 1; k < poly.length - 1; k++) {
+        for (const v of [poly[0], poly[k], poly[k + 1]]) out.push(v[0], v[1] + T.heightAt(v[0], v[2]), v[2]);
+      }
+    }
+  }
+  return out;
+}
+
 function flatGeometry(pos, colors) {
   faceUp(pos);
   const g = new THREE.BufferGeometry();
@@ -121,7 +225,7 @@ function asphaltTexture() {
 
 // 폴리라인을 폭 w로 넓힌 띠. 아스팔트 무늬는 방향이 없으니 uv는 월드 좌표(8m = 1)로.
 function ribbon(pts, w, y = 0) {
-  const pos = [];
+  let pos = [];
   for (let i = 0; i < pts.length - 1; i++) {
     const [ax, an] = pts[i], [bx, bn] = pts[i + 1];
     const az = -an, bz = -bn, len = Math.hypot(bx - ax, bz - az);
@@ -137,12 +241,18 @@ function ribbon(pts, w, y = 0) {
   const uv = [];
   for (let i = 0; i < pos.length; i += 3) uv.push(pos[i] / 8, pos[i + 2] / 8);
   faceUp(pos, uv);
+  if (TERRAIN) {
+    pos = drape(pos);
+    uv.length = 0;
+    for (let i = 0; i < pos.length; i += 3) uv.push(pos[i] / 8, pos[i + 2] / 8);
+  }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   const nor = new Float32Array(pos.length);
   for (let i = 1; i < nor.length; i += 3) nor[i] = 1;
   g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  if (TERRAIN) g.computeVertexNormals();
   return g;
 }
 
@@ -214,7 +324,9 @@ function buildAreas(areas) {
       for (const t of tris) for (const idx of [t[0], t[2], t[1]]) pos.push(pts[idx][0], 0, -pts[idx][1]);
     }
     if (!pos.length) continue;
-    const g = flatGeometry(pos);
+    faceUp(pos);
+    const g = flatGeometry(drape(pos));
+    if (TERRAIN) g.computeVertexNormals();
     const order = kind === 'plaza' ? -1 : -3;
     const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({
       color: AREA_COLORS[kind] || '#cccccc', side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: order, polygonOffsetUnits: order,
@@ -225,8 +337,20 @@ function buildAreas(areas) {
   return group;
 }
 
-// 놀이 구역 경계: 바닥에 줄무늬 띠
+// 놀이 구역 경계: 바닥에 줄무늬 띠 (지형이 있으면 땅을 따라가는 선)
 function buildBoundary([x0, z0, x1, z1]) {
+  if (TERRAIN) {
+    const pts = [];
+    const edge = (ax, az, bx, bz) => {
+      const n = Math.ceil(Math.hypot(bx - ax, bz - az) / 8);
+      for (let i = 0; i < n; i++) {
+        const x = ax + ((bx - ax) * i) / n, z = az + ((bz - az) * i) / n;
+        pts.push(new THREE.Vector3(x, TERRAIN.heightAt(x, z) + 0.5, z));
+      }
+    };
+    edge(x0, z0, x1, z0); edge(x1, z0, x1, z1); edge(x1, z1, x0, z1); edge(x0, z1, x0, z0);
+    return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: '#ff3d7f' }));
+  }
   const g = new THREE.EdgesGeometry(new THREE.BoxGeometry(x1 - x0, 0.6, z1 - z0));
   const line = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: '#ff3d7f' }));
   line.position.set((x0 + x1) / 2, 0.3, (z0 + z1) / 2);
@@ -290,14 +414,17 @@ export class World {
     this.group = new THREE.Group();
 
     const [x0, z0, x1, z1] = this.play;
+    this.terrain = TERRAIN = map.terrain ? new Terrain(map.terrain) : null;
     const span = Math.max(x1 - x0, z1 - z0) * 3;
     const tex = sidewalkTexture();
     tex.repeat.set(span / 2.5, span / 2.5); // 보도블록 한 장 = 2.5m
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(span, span), new THREE.MeshLambertMaterial({ map: tex }));
     ground.rotation.x = -Math.PI / 2;
-    ground.position.set((x0 + x1) / 2, 0, (z0 + z1) / 2);
+    // 지형이 있으면 지형 격자 밖(멀리 보이는 곳)만 평평한 바닥이 맡는다
+    ground.position.set((x0 + x1) / 2, this.terrain ? -0.3 : 0, (z0 + z1) / 2);
     ground.receiveShadow = true;
     this.group.add(ground);
+    if (this.terrain) this.group.add(this.terrain.mesh(sidewalkTexture()));
 
     this.group.add(buildAreas(map.areas || []));
     this.group.add(buildRoads(map.roads || []));
@@ -355,8 +482,15 @@ export class World {
       bb[0] = Math.min(bb[0], px); bb[1] = Math.min(bb[1], n);
       bb[2] = Math.max(bb[2], px); bb[3] = Math.max(bb[3], n);
     }
+    // 비탈에 선 건물은 가장 낮은 모서리에 바닥을 둔다 (높은 쪽은 땅에 묻힌다)
+    let base = 0;
+    if (this.terrain) {
+      base = this.terrain.heightAt(x, z);
+      for (const [px, n] of pts) base = Math.min(base, this.terrain.heightAt(px, -n));
+      mesh.position.y = base;
+    }
     const bld = {
-      idx: this.buildings.length, name, pts, bb, h, x, z, mesh, alive: true, landmark,
+      idx: this.buildings.length, name, pts, bb, h, base, x, z, mesh, alive: true, landmark,
       low: h < 2, // 아주 낮은 구조물은 밟고 지나갈 수 있음
       // 바닥 길이·높이 중 큰 쪽. 150m 넘는 초고층은 넘는 부분을 40%만 쳐서 스테이지 끝에 먹을 수 있게 한다
       pick: Math.max(h > 150 ? 150 + (h - 150) * 0.4 : h, ext) * 0.65,
@@ -424,6 +558,11 @@ export class World {
       if (d < best) best = d;
     }
     return best;
+  }
+
+  // 땅 높이 (지형이 없으면 0)
+  groundAt(x, z) {
+    return this.terrain ? this.terrain.heightAt(x, z) : 0;
   }
 
   inPlay(x, z, margin = 0) {
