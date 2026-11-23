@@ -223,9 +223,34 @@ function civic(L, D, h, { tower = 0 } = {}) {
 }
 
 // ---------- 도곡 ----------
-// 타워팰리스: 모서리를 깎은 짙은 유리 타워 + 꼭대기 첨탑
-function towerPalace(L, D, b) {
-  return done(glassTower(L, D, b.h || 234, { body: GLASS_DARK, band: '#8fa3b3', crown: 'spire', round: true }));
+// 타워팰리스 1차(A~D동): 정사각형 평면, 옅은 갈색 외벽 + 층 띠, 꼭대기 작은 왕관
+function towerPalace1(L, D, b) {
+  const parts = [];
+  const h = b.h || 230, w = Math.min(L, D) * 0.9;
+  banded(parts, w, w, 0, h * 0.96, '#d9c4a3', '#a8916f', { step: 3.3, every: 2, bandH: 0.6 });
+  parts.push(part(box(w * 0.7, h * 0.04, w * 0.7), '#c4ad8b', { y: h * 0.98 }));
+  parts.push(part(box(w + 0.6, 1.2, w + 0.6), '#a8916f', { y: h * 0.96 }));
+  return { geom: merge(parts), h };
+}
+
+// 타워팰리스 2차(E·F동): 흰 외벽, 모서리가 각진 다각형 평면
+function towerPalace2(L, D, b) {
+  const parts = [];
+  const h = b.h || 200;
+  for (const [y0, y1, s] of [[0, h * 0.85, 1], [h * 0.85, h, 0.82]]) {
+    parts.push(part(cyl(0.5, 0.5, y1 - y0, 6), '#efeee9', { y: (y0 + y1) / 2, sx: L * 0.9 * s, sz: D * 0.9 * s, ry: Math.PI / 6 }));
+    for (let y = y0 + 6.6; y < y1; y += 6.6) parts.push(part(cyl(0.5, 0.5, 0.9, 6), '#8e9aa4', { y, sx: L * 0.9 * s + 0.4, sz: D * 0.9 * s + 0.4, ry: Math.PI / 6 }));
+  }
+  return { geom: merge(parts), h };
+}
+
+// 타워팰리스 3차(G동, 약 264m): 타원형 평면, 회색 유리, 단지에서 가장 높음
+function towerPalace3(L, D, b) {
+  const parts = [];
+  const h = b.h || 264;
+  banded(parts, L * 0.92, D * 0.75, 0, h * 0.95, '#9ba4ab', '#cfd5d9', { step: 3.3, every: 2, bandH: 0.6, round: true });
+  parts.push(part(cyl(0.5, 0.5, h * 0.05, 32), '#868f96', { y: h * 0.975, sx: L * 0.7, sz: D * 0.55 }));
+  return { geom: merge(parts), h };
 }
 
 // 은마아파트(1979): 14층 판상형, 흰 벽에 층마다 베란다 띠
@@ -365,8 +390,10 @@ export const CITY_LANDMARKS = [
   { test: /^대법원$/, build: (L, D, b) => civic(L, D, 24, { tower: b.p.length >= 30 ? 68 : 0 }) },
   { test: /^서울법원종합청사$/, build: (L, D) => civic(L, D, 45), rename: '서울중앙지방법원' },
   { test: /^(서울광역)?공소청( 본관)?$/, build: (L, D, b) => civic(L, D, Math.max(b.h, 30)) },
-  { test: /^(삼성타워팰리스[12]차 [A-F]동|타워팰리스 [A-G]동)$/, build: towerPalace },
-  { test: /^G$/, map: '도곡동·대치동', build: towerPalace, rename: '타워팰리스3차 G동' },
+  { test: /^(삼성타워팰리스1차 [A-D]동|타워팰리스 [A-D]동)$/, build: towerPalace1 },
+  { test: /^(삼성타워팰리스2차 [EF]동|타워팰리스 [EF]동)$/, build: towerPalace2 },
+  { test: /^G$/, map: '도곡동·대치동', build: towerPalace3, rename: '타워팰리스3차 G동' },
+  { test: /^타워팰리스 ?3차 ?G동$/, build: towerPalace3 },
   { test: /^한보은마아파트 \d+동$/, build: eunma },
   { test: /^대치동부센트레빌아파트 \d+동$/, build: centreville },
   { test: /^63빌딩$/, build: sixtyThree },
