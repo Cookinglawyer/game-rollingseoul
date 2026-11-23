@@ -3,9 +3,9 @@
 
 사용법:
     python3 tools/apt_names.py 받은파일.json      (fetch_osm.build_query_apt_complexes 결과, out geom)
-    python3 tools/apt_names.py                    (이미 저장한 data/apt_complexes.json 으로 다시 적용)
+    python3 tools/apt_names.py                    (이미 저장한 tools/apt_complexes.json 으로 다시 적용)
 
-단지 경계(이름 있는 주거 구역)를 data/apt_complexes.json 으로 줄여 저장하고, data/*.json 지도마다
+단지 경계(이름 있는 주거 구역)를 tools/apt_complexes.json 으로 줄여 저장하고, data/*.json 지도마다
 건물 중심이 들어 있는 가장 작은 단지의 이름을 붙인다. 단지를 못 찾으면 그대로 둔다.
 fetch_osm.py / build_seoul.py 로 지도를 다시 만들면 이름이 원래대로 돌아가므로 그 뒤에 다시 실행한다.
 """
@@ -19,9 +19,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fetch_osm as F  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-STORE = ROOT / 'data' / 'apt_complexes.json'
-# 동 번호만 있는 이름: 101, 101동, 1, A, A동, 가동, 103-1동
-DONG = re.compile(r'^\s*([0-9]{1,4}(?:-[0-9]{1,2})?[A-Za-z]?|[A-Za-z]{1,2}|[가-힣])\s*동?\s*$')
+STORE = ROOT / 'tools' / 'apt_complexes.json'
+# 동 번호만 있는 이름: 101, 101동, 1, A, A동, 103-1동, 가동 (한글 한 글자는 '동'이 붙은 것만. 'CU' 같은 상호는 제외)
+DONG = re.compile(r'^\s*(?:([0-9]{1,4}(?:-[0-9]{1,2})?[A-Za-z]?|[A-Za-z])\s*동?|([가-힣])\s*동)\s*$')
 
 
 def area(p):
@@ -99,7 +99,7 @@ def main():
             if not hits:
                 continue
             c = min(hits, key=lambda c: c['a'])
-            b['n'] = f"{c['n']} {m.group(1)}동"
+            b['n'] = f"{c['n']} {m.group(1) or m.group(2)}동"
             b.pop('dn', None)
             named += 1
         if total:
