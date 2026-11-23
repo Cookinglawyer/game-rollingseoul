@@ -2,6 +2,7 @@
 // 실제 비율과 색을 참고해 기본 도형으로 만든 모델. 앞면이 +z(남쪽)를 보고, 바닥 중심이 원점.
 import * as THREE from '../../vendor/three.module.min.js';
 import { part, merge } from './props.js';
+import { springSculpture } from './citymarks.js';
 
 // 단청·기와·석재 색
 const STONE = '#d8d1c2';
@@ -230,4 +231,5 @@ export const STATUES = [
   { name: '세종대왕 동상', osm: '세종대왕', lonlat: [126.97689, 37.57266], build: sejongStatue },
   { name: '이순신 장군 동상', osm: '이순신', lonlat: [126.97691, 37.57102], build: yiStatue },
   { name: '거북선', follow: '이순신 장군 동상', offset: [0, -11], build: turtleShip }, // 이순신 동상 앞(남쪽) 11m
+  { name: '스프링', osm: '스프링', lonlat: [126.97778, 37.56922], build: springSculpture }, // 청계광장 (클래스 올든버그, 약 20m)
 ];

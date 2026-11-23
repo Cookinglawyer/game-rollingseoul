@@ -3,6 +3,7 @@
 import * as THREE from '../../vendor/three.module.min.js';
 import { LANDMARK_BUILDINGS, STATUES } from './landmarks.js';
 import { koreanBuilding } from './facades.js';
+import { findCityLandmark } from './citymarks.js';
 
 const ROAD_COLOR = '#55565c'; // 미니맵 도로색
 const BLD_CELL = 32; // 건물 위치 색인 칸 크기(m)
@@ -437,15 +438,17 @@ export class World {
     const landmarkMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
     (map.buildings || []).forEach((b, bi) => {
       if (b.p.length < 3) return;
-      const model = LANDMARK_BUILDINGS[b.n];
+      const city = LANDMARK_BUILDINGS[b.n] ? null : findCityLandmark(b, map.name);
+      const model = LANDMARK_BUILDINGS[b.n] || (city && city.build);
       if (model) {
-        // 광화문·기념비전: 지도 외곽선에 맞춰 실제 모양 모델로
+        // 광화문·명동성당·63빌딩 같은 랜드마크: 지도 외곽선에 맞춰 실제 모양 모델로
         const f = footprintFrame(b.p);
-        const { geom, h } = model(f.L, f.D);
+        const { geom, h } = model(f.L, f.D, b);
         const mesh = new THREE.Mesh(geom, landmarkMaterial);
+        mesh.castShadow = mesh.receiveShadow = true;
         mesh.position.set(f.cx, 0, -f.cn);
         mesh.rotation.y = f.rot;
-        this.addBuilding({ pts: b.p, h, name: b.n, mesh, x: f.cx, z: -f.cn, ext: Math.max(f.L, f.D), landmark: true });
+        this.addBuilding({ pts: b.p, h, name: (city && city.rename) || b.n || '', mesh, x: f.cx, z: -f.cn, ext: Math.max(f.L, f.D), landmark: true });
         return;
       }
       const { mesh, cx, cz, ext, h } = koreanBuilding(b, bi, facades);
@@ -464,7 +467,13 @@ export class World {
           const pt = (map.points || []).find((q) => q.n.includes(st.osm));
           [e, n] = pt ? pt.p : this.project(st.lonlat);
         }
-        if (!this.inPlay(e, -n)) continue;
+        if (!this.inPlay(e, -n)) {
+          // 놀이 구역 바로 밖(100m 안)이면 안쪽 가장자리로 당겨 넣는다 (예: 명동 지도의 청계광장 스프링)
+          const [x0, z0, x1, z1] = this.play, m = 12;
+          const cx = Math.min(x1 - m, Math.max(x0 + m, e)), cz = Math.min(z1 - m, Math.max(z0 + m, -n));
+          if (Math.hypot(cx - e, cz + n) > 100 || st.follow) continue;
+          [e, n] = [cx, -cz];
+        }
         placed[st.name] = [e, n];
         const { geom, h, w, d } = st.build();
         const mesh = new THREE.Mesh(geom, landmarkMaterial);
