@@ -710,7 +710,7 @@ export class Game {
       if (dx > lim || dx < -lim || dz > lim || dz < -lim) continue;
       const d = Math.hypot(dx, dz);
       const edible = canPick(it.type, this.diameter);
-      // 먹을 수 있는 물체는 공 반경 안쪽이면 붙인다 (괴혼처럼 후하게).
+      // 먹을 수 있는 물체는 공 반경 안쪽이면 붙인다 (후하게).
       // 너무 큰 물체는 실제 닿는 거리로 충돌: 낮은 물체는 공 아래쪽 곡면에 닿는 지점까지
       const h = Math.min(it.type.h, r);
       const contact = edible ? reach * 0.9 + it.foot : Math.sqrt(Math.max(0, 2 * r * h - h * h)) + it.foot;

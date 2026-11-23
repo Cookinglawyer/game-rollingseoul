@@ -22,9 +22,9 @@ function writeSave() {
   }
 }
 
-// 처음 하는 사람도 고를 수 있게 모든 스테이지를 처음부터 연다 (클리어 기록은 그대로 남긴다)
-function isUnlocked() {
-  return true;
+// 앞 스테이지를 클리어해야 다음 스테이지가 열린다
+function isUnlocked(index) {
+  return index === 0 || Boolean(save.cleared[STAGES[index - 1].id]);
 }
 
 // ---------- 화면 전환 ----------
