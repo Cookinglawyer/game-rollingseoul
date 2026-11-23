@@ -2,9 +2,10 @@
 """스테이지 지도(data/<id>.json)에 실제 지형 높이를 넣는다.
 
 사용법:
-    python3 tools/fetch_terrain.py itaewon [--exag 1.8] [--cell 5]
+    python3 tools/fetch_terrain.py itaewon [--exag 1.8] [--cell 5] [--zoom 14] [--flatten 40]
+    python3 tools/fetch_terrain.py seoul --exag 1 --cell 60 --zoom 12   (서울 전체: 범위가 넓어 성기게)
 
-AWS Terrain Tiles(Terrarium, 공개·무료, z14 ≈ 7.6m 간격)에서 tools/regions.json 의 bbox 범위
+AWS Terrain Tiles(Terrarium, 공개·무료, z14 ≈ 7.6m 간격)에서 놀이 구역보다 300m 넓은 범위의
 높이를 받아, 게임 좌표 격자(cell m 간격)로 다시 뽑는다. 가장 낮은 곳을 0으로 두고 exag 배로 과장한다.
 fetch_osm.py 로 지도를 다시 만들면 지형이 지워지므로 그 뒤에 다시 실행한다.
 
@@ -28,21 +29,28 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fetch_osm as F  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-Z = 14
 TILE_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'
 
 
 class Dem:
-    def __init__(self):
+    def __init__(self, zoom):
+        self.z = zoom
         self.tiles = {}
 
     def tile(self, x, y):
         if (x, y) not in self.tiles:
-            with urllib.request.urlopen(TILE_URL.format(z=Z, x=x, y=y), timeout=30) as res:
+            with urllib.request.urlopen(TILE_URL.format(z=self.z, x=x, y=y), timeout=30) as res:
                 im = Image.open(io.BytesIO(res.read())).convert('RGB')
             px = im.load()
-            self.tiles[(x, y)] = [[(lambda r, g, b: r * 256 + g + b / 256 - 32768)(*px[i, j]) for i in range(256)]
-                                  for j in range(256)]
+            t = [[(lambda r, g, b: r * 256 + g + b / 256 - 32768)(*px[i, j]) for i in range(256)] for j in range(256)]
+            # 타일에 가끔 빈 값(예: -1724m)이 섞여 있다. 서울은 해발 -30m 아래가 없으므로 주변 값으로 메운다.
+            for j in range(256):
+                for i in range(256):
+                    if t[j][i] < -30:
+                        near = [t[jj][ii] for jj in range(max(0, j - 3), min(256, j + 4))
+                                for ii in range(max(0, i - 3), min(256, i + 4)) if t[jj][ii] >= -30]
+                        t[j][i] = sorted(near)[len(near) // 2] if near else 0
+            self.tiles[(x, y)] = t
         return self.tiles[(x, y)]
 
     def pixel(self, gx, gy):
@@ -50,7 +58,7 @@ class Dem:
         return t[gy % 256][gx % 256]
 
     def height(self, lon, lat):
-        n = 2 ** Z * 256
+        n = 2 ** self.z * 256
         fx = (lon + 180) / 360 * n - 0.5
         lr = math.radians(lat)
         fy = (1 - math.log(math.tan(lr) + 1 / math.cos(lr)) / math.pi) / 2 * n - 0.5
@@ -65,23 +73,24 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('region')
     ap.add_argument('--exag', type=float, default=1.8, help='높이 과장 배수')
-    ap.add_argument('--cell', type=float, default=5, help='격자 간격(m)')
+    ap.add_argument('--cell', type=float, help='격자 간격(m). 없으면 5m부터, 꼭짓점이 20만 개를 넘지 않게 넓힌다')
+    ap.add_argument('--zoom', type=int, default=14, help='고도 타일 확대 단계 (14 ≈ 7.6m, 12 ≈ 30m)')
+    ap.add_argument('--flatten', type=float, default=70, help='이보다 좁은 봉우리(건물)를 깎는 반경(m)')
     args = ap.parse_args()
 
-    region = json.loads((ROOT / 'tools' / 'regions.json').read_text(encoding='utf-8'))[args.region]
     path = ROOT / 'data' / f'{args.region}.json'
     data = json.loads(path.read_text(encoding='utf-8'))
     proj = F.Projector(*data['origin'])
 
-    w, s, e, n = region['bbox']
-    xw, ys = proj(w, s)
-    xe, yn = proj(e, n)
-    cell = args.cell
-    x0, z0 = math.floor(xw), math.floor(-yn)
-    gw = int((xe - x0) / cell) + 2
-    gh = int((-ys - z0) / cell) + 2
+    # 놀이 구역보다 300m 넓게 (멀리 보이는 곳까지)
+    px0, pz0, px1, pz1 = data['play']
+    m = 300
+    cell = args.cell or max(5, math.ceil(math.sqrt((px1 - px0 + 2 * m) * (pz1 - pz0 + 2 * m) / 200000)))
+    x0, z0 = math.floor(px0 - m), math.floor(pz0 - m)
+    gw = int((px1 + m - x0) / cell) + 2
+    gh = int((pz1 + m - z0) / cell) + 2
 
-    dem = Dem()
+    dem = Dem(args.zoom)
     grid = []
     for j in range(gh):
         z = z0 + j * cell
@@ -92,7 +101,16 @@ def main():
             row.append(dem.height(proj.lon0 + x / proj.kx, lat))
         grid.append(row)
 
-    # 건물·나무가 섞인 잔물결을 줄이려고 3×3 평균 두 번
+    # 고도 데이터에 섞인 높은 건물(예: 이태원 제일기획 자리가 주변보다 40m 솟음)을 깎는다:
+    # 반경 FLATTEN m 안의 최솟값을 고른 뒤 다시 최댓값을 고르면(열림 연산) 그보다 좁은 봉우리만 사라진다.
+    k = max(1, round(args.flatten / cell))
+
+    def sweep(g, pick):
+        rows = [[pick(r[max(0, i - k):i + k + 1]) for i in range(gw)] for r in g]
+        return [[pick([rows[jj][i] for jj in range(max(0, j - k), min(gh, j + k + 1))]) for i in range(gw)] for j in range(gh)]
+    grid = sweep(sweep(grid, min), max)
+
+    # 잔물결을 줄이려고 3×3 평균 두 번
     for _ in range(2):
         grid = [[sum(grid[min(gh - 1, max(0, j + dj))][min(gw - 1, max(0, i + di))]
                      for dj in (-1, 0, 1) for di in (-1, 0, 1)) / 9 for i in range(gw)] for j in range(gh)]

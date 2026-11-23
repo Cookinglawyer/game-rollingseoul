@@ -107,6 +107,19 @@ out body;
 >;
 out skel qt;"""
 
+
+def build_query_apt_complexes(bbox=None):
+    """아파트 단지 경계(이름 있는 주거 구역): '101동' 같은 건물 이름 앞에 단지 이름을 붙일 때 쓴다.
+    out geom 으로 받아 파일이 작다."""
+    b = _ob(bbox or SEOUL_BBOX)
+    return f"""[out:json][timeout:300][maxsize:536870912];
+(
+  way["landuse"="residential"]["name"]{b};
+  relation["landuse"="residential"]["name"]{b};
+  way["residential"="apartments"]["name"]{b};
+);
+out geom;"""
+
 def fetch(bbox):
     data = urllib.parse.urlencode({'data': build_query(bbox)}).encode()
     req = urllib.request.Request(OVERPASS, data=data, headers={'User-Agent': 'game-rollingseoul/0.1'})

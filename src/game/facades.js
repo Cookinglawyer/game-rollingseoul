@@ -413,16 +413,34 @@ export function koreanBuilding(b, bi, { material, tiles }) {
       push(ax, h, az, nx, 0.8, nz, 0, 0, t); push(jx, h + ridge, jz, nx, 0.8, nz, len / 3, 1, t); push(bx, h, bz, nx, 0.8, nz, len / 3, 0, t);
       push(ax, h, az, nx, 0.8, nz, 0, 0, t); push(ix, h + ridge, iz, nx, 0.8, nz, 0, 1, t); push(jx, h + ridge, jz, nx, 0.8, nz, len / 3, 1, t);
     }
-    for (const tr of tris) for (const k of [tr[0], tr[2], tr[1]]) {
+    for (const tr of tris) for (const k of [tr[0], tr[1], tr[2]]) {
       const [x, z] = L(...inner[k]);
       push(x, h + ridge, z, 0, 1, 0, x / 3, z / 3, tiles.hanokRoof);
     }
   } else {
     const t = c.style === 'glass' ? tiles.concrete : tiles.roof;
-    for (const tr of tris) for (const k of [tr[0], tr[2], tr[1]]) {
+    // 외곽선이 시계 방향이라 (지도 → 건물 좌표에서 남북이 뒤집혀) 삼각형 순서 그대로가 위에서 볼 때 반시계
+    for (const tr of tris) for (const k of [tr[0], tr[1], tr[2]]) {
       const [x, z] = L(...pts[k]);
       push(x, h, z, 0, 1, 0, x / 6, z / 6, t);
     }
+    // 옥상 난간 안쪽 면 (없으면 위에서 볼 때 난간이 투명하다)
+    for (let i = 0; i < pts.length; i++) {
+      const [ax, az] = L(...pts[i]);
+      const [bx, bz] = L(...pts[(i + 1) % pts.length]);
+      const len = Math.hypot(bx - ax, bz - az);
+      if (len < 0.05) continue;
+      const nx = -(bz - az) / len, nz = (bx - ax) / len; // 안쪽
+      const v1 = PARAPET / FLOOR;
+      push(ax, h, az, nx, 0, nz, 0, 0, tiles.concrete); push(bx, h, bz, nx, 0, nz, len / 3, 0, tiles.concrete); push(bx, top, bz, nx, 0, nz, len / 3, v1, tiles.concrete);
+      push(ax, h, az, nx, 0, nz, 0, 0, tiles.concrete); push(bx, top, bz, nx, 0, nz, len / 3, v1, tiles.concrete); push(ax, top, az, nx, 0, nz, 0, v1, tiles.concrete);
+    }
+  }
+
+  // 바닥 면: 땅 위에서는 안 보이지만, 공에 붙어 뒤집히면 속이 비어 보이지 않게 닫는다
+  for (const tr of tris) for (const k of [tr[0], tr[2], tr[1]]) {
+    const [x, z] = L(...pts[k]);
+    push(x, 0, z, 0, -1, 0, x / 6, z / 6, tiles.concrete);
   }
 
   // 옥상 물탱크·옥탑방
