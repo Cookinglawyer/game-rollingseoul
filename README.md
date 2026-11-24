@@ -136,6 +136,12 @@ AWS Terrain Tiles(Terrarium, 공개 고도 데이터, z14 ≈ 7.6m 간격)에서
 
 ## 지도 다시 만들 때 순서
 
+한 번에: `bash tools/rebuild_all.sh` (원본 `tools/osm_raw/*.json.gz` → 지도 변환 → 지형 → 아파트 단지 이름)
+원본은 Overpass에서 받은 OSM 데이터(© OpenStreetMap contributors, ODbL)를 gzip으로 압축한 것.
+건물 영어 이름(`name:en`) 같은 태그를 더 쓰고 싶으면 이 원본에서 다시 변환하면 된다.
+
+순서를 하나씩 하려면:
+
 1. `fetch_osm.py <구역> --raw ...` (서울 전체는 `build_seoul.py`)
 2. `fetch_terrain.py <구역>`
 3. `apt_names.py` (모든 지도에 다시 적용)

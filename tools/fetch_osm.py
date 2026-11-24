@@ -14,6 +14,7 @@
 지도 데이터 © OpenStreetMap contributors, ODbL 1.0
 """
 import argparse
+import gzip
 import json
 import math
 import sys
@@ -318,7 +319,8 @@ def main():
     region = regions[args.region]
 
     if args.raw:
-        raw = json.loads(Path(args.raw).read_text(encoding='utf-8'))
+        p = Path(args.raw)
+        raw = json.loads(gzip.decompress(p.read_bytes()) if p.suffix == '.gz' else p.read_text(encoding='utf-8'))
     else:
         print(f'Overpass에서 {region["name"]} 데이터 받는 중...')
         raw = fetch(region['bbox'])

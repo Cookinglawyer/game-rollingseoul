@@ -11,6 +11,7 @@
 MAX_BUILDINGS 개만 남긴다 (지역이 고르게 남도록). 이름난 곳(LANDMARKS)은 꼭 넣는다.
 한강 다리는 낮고 긴 '다리' 건물로 넣어 마지막에 먹을 수 있게 한다.
 """
+import gzip
 import json
 import math
 import re
@@ -36,7 +37,8 @@ DONG_NAME = re.compile(r'^[0-9A-Za-z가-힣\- ]{1,4}동$|^[0-9A-Za-z\- ]+$')
 def load(paths):
     nodes, ways, rels = {}, {}, {}
     for p in paths:
-        for e in json.loads(Path(p).read_text(encoding='utf-8'))['elements']:
+        p = Path(p)
+        for e in json.loads(gzip.decompress(p.read_bytes()) if p.suffix == '.gz' else p.read_text(encoding='utf-8'))['elements']:
             box = {'node': nodes, 'way': ways, 'relation': rels}[e['type']]
             if e['id'] not in box or 'tags' in e:  # 같은 요소가 태그 없이(skel) 또 오면 덮어쓰지 않는다
                 box[e['id']] = e
