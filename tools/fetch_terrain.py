@@ -147,6 +147,26 @@ def main():
     for _ in range(2):
         grid = [[sum(grid[min(gh - 1, max(0, j + dj))][min(gw - 1, max(0, i + di))]
                      for dj in (-1, 0, 1) for di in (-1, 0, 1)) / 9 for i in range(gw)] for j in range(gh)]
+    # keep: 지정한 방향으로만 경사를 남기고 나머지는 시작점 높이로 평평하게.
+    #   [{"dir": [동, 북], "from": m, "to": m}, ...] — 시작점에서 그 방향으로 from m까지는 평지, to m에서 실제 지형.
+    if conf.get('keep'):
+        si, sj = min(gw - 1, max(0, round(-x0 / cell))), min(gh - 1, max(0, round(-z0 / cell)))
+        base = grid[sj][si]
+
+        def ss(a, b, v):
+            t = min(1, max(0, (v - a) / (b - a)))
+            return t * t * (3 - 2 * t)
+        for j in range(gh):
+            n = -(z0 + j * cell)
+            for i in range(gw):
+                x = x0 + i * cell
+                k = 0
+                for r in conf['keep']:
+                    dx, dn = r['dir']
+                    ln = math.hypot(dx, dn)
+                    k = max(k, ss(r['from'], r['to'], (x * dx + n * dn) / ln))
+                grid[j][i] = base + k * (grid[j][i] - base)
+
     low = min(min(r) for r in grid)
     flat = [max(0, round((v - low) * args.exag * 100)) for r in grid for v in r]
     flat = [min(65535, v) for v in flat]
