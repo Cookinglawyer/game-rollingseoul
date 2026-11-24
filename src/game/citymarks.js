@@ -90,7 +90,7 @@ function sejongCenter(L, D, { big = true } = {}) {
   return { geom: merge(parts), h: h + 5.4 };
 }
 
-// D타워(2015): 아래 5층은 석재 상가, 그 위로 두 동의 유리 오피스. 유리 상자들이 층마다 엇갈려 쌓인 모양에 흰 띠.
+// D타워(2015): 아래 5층은 석재 상가, 그 위로 두 동의 황금색 유리 오피스. 상자들이 층마다 엇갈려 쌓인 모양.
 function dTower(L, D, b) {
   const parts = [];
   const h = b.h || 105, base = 22;
@@ -100,8 +100,8 @@ function dTower(L, D, b) {
     for (let k = 0; k < stacks; k++) {
       const off = (k % 2 ? 1 : -1) * Math.min(5, D * 0.08);
       const sub = [];
-      banded(sub, tw, D * 0.8, 0, sh - 0.6, '#4d6b80', '#e8ecef', { step: 4.2 });
-      sub.push(part(box(tw + 0.6, 0.6, D * 0.8 + 0.6), '#f2f2ee', { y: sh - 0.3 })); // 상자마다 흰 테
+      banded(sub, tw, D * 0.8, 0, sh - 0.6, '#c9a24a', '#e6cf8e', { step: 4.2 });
+      sub.push(part(box(tw + 0.6, 0.6, D * 0.8 + 0.6), '#efe0b0', { y: sh - 0.3 })); // 상자마다 밝은 금색 테
       for (const g of sub) { g.translate(sx * L * 0.25, base + k * sh, off); parts.push(g); }
     }
   }
