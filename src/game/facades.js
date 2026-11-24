@@ -141,6 +141,15 @@ const FACADE_DRAW = {
     g.fillRect(0, 0, 256, 214);
     noise(g, 256, 214, 1500, 0.1, r);
   },
+  roofGrey(g) { // 짙은 콘크리트 옥상 (큰 건물): 줄눈과 얼룩
+    const r = rng(97);
+    g.fillStyle = '#85827c';
+    g.fillRect(0, 0, 256, 214);
+    noise(g, 256, 214, 1800, 0.14, r);
+    g.fillStyle = 'rgba(40,40,40,0.22)';
+    for (let i = 0; i < 256; i += 85) g.fillRect(i, 0, 2, 214);
+    for (let j = 0; j < 214; j += 71) g.fillRect(0, j, 256, 2);
+  },
   hanokWall(g) {
     g.fillStyle = '#ece6d8';
     g.fillRect(0, 0, 256, 214);
@@ -418,7 +427,9 @@ export function koreanBuilding(b, bi, { material, tiles }) {
       push(x, h + ridge, z, 0, 1, 0, x / 3, z / 3, tiles.hanokRoof);
     }
   } else {
-    const t = c.style === 'glass' ? tiles.concrete : tiles.roof;
+    // 초록 방수 옥상은 5층 이하 빌라형만. 그보다 높거나 이름 있는 큰 건물은 회색·짙은 콘크리트 옥상
+    const villa = c.style !== 'glass' && h <= FLOOR * 5 + 1 && !(b.n && Math.abs(polygonArea(pts)) > 600);
+    const t = villa ? tiles.roof : hashStr(bi) % 2 ? tiles.roofGrey : tiles.concrete;
     // 외곽선이 시계 방향이라 (지도 → 건물 좌표에서 남북이 뒤집혀) 삼각형 순서 그대로가 위에서 볼 때 반시계
     for (const tr of tris) for (const k of [tr[0], tr[1], tr[2]]) {
       const [x, z] = L(...pts[k]);

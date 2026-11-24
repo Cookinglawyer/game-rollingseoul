@@ -69,6 +69,60 @@ function glassTower(L, D, h, { body = GLASS, band = MULLION, crown = 'flat', rou
 }
 const done = ({ parts, h }) => ({ geom: merge(parts), h });
 
+// ---------- 광화문 ----------
+// 세종문화회관(1978, 엄덕문): 밝은 화강석 몸통, 긴 면을 따라 늘어선 육중한 네모 기둥(열주),
+// 그 위를 덮는 두꺼운 추녀(처마), 벽에는 완자·격자 무늬. big 이면 대극장, 아니면 체임버홀·미술관.
+function sejongCenter(L, D, { big = true } = {}) {
+  const parts = [];
+  const h = big ? 24 : 14, pale = '#ddd9cf', shade = '#bdb8ad';
+  const bw = L * 0.84, bd = D * 0.62;
+  parts.push(part(box(bw, h, bd), pale, { y: h / 2 }));
+  // 격자 무늬 벽: 가로·세로 가는 줄
+  for (let y = 4; y < h - 2; y += 3) for (const z of [bd / 2 + 0.1, -bd / 2 - 0.1]) parts.push(part(box(bw * 0.9, 0.35, 0.3), shade, { y, z }));
+  for (let i = 1; i < 16; i++) for (const z of [bd / 2 + 0.1, -bd / 2 - 0.1]) parts.push(part(box(0.35, h - 6, 0.3), shade, { x: -bw * 0.45 + (bw * 0.9 * i) / 16, y: h / 2, z }));
+  // 열주: 긴 두 면 바깥쪽
+  const n = big ? 12 : 6, colH = h - 2, cz = D / 2 - 1.5;
+  for (let i = 0; i < n; i++) for (const z of [cz, -cz]) parts.push(part(box(1.8, colH, 1.8), pale, { x: -L * 0.45 + (L * 0.9 * i) / (n - 1), y: colH / 2, z }));
+  // 두꺼운 추녀: 기둥 위를 덮고 바깥으로 내민 지붕판 + 위로 좁아지는 지붕
+  parts.push(part(box(L, 2.4, D), shade, { y: h + 1.2 }));
+  parts.push(part(box(L * 1.02, 0.6, D * 1.04), '#8f8a80', { y: h }));
+  parts.push(part(box(L * 0.8, 3, D * 0.55), '#a39e94', { y: h + 3.9 }));
+  return { geom: merge(parts), h: h + 5.4 };
+}
+
+// D타워(2015): 아래 5층은 석재 상가, 그 위로 두 동의 유리 오피스. 유리 상자들이 층마다 엇갈려 쌓인 모양에 흰 띠.
+function dTower(L, D, b) {
+  const parts = [];
+  const h = b.h || 105, base = 22;
+  parts.push(part(box(L, base, D), '#c9c3b8', { y: base / 2 }));
+  for (const sx of [-1, 1]) {
+    const tw = L * 0.42, stacks = 5, sh = (h - base) / stacks;
+    for (let k = 0; k < stacks; k++) {
+      const off = (k % 2 ? 1 : -1) * Math.min(5, D * 0.08);
+      const sub = [];
+      banded(sub, tw, D * 0.8, 0, sh - 0.6, '#4d6b80', '#e8ecef', { step: 4.2 });
+      sub.push(part(box(tw + 0.6, 0.6, D * 0.8 + 0.6), '#f2f2ee', { y: sh - 0.3 })); // 상자마다 흰 테
+      for (const g of sub) { g.translate(sx * L * 0.25, base + k * sh, off); parts.push(g); }
+    }
+  }
+  return { geom: merge(parts), h };
+}
+
+// 교보생명빌딩(1980): 짙은 갈색 석재, 모서리를 깎은 팔각 평면, 긴 면 가운데 세로로 깊게 파인 유리 홈,
+// 아래쪽 모서리에 큰 글판(광화문글판).
+function kyoboGwanghwamun(L, D, b) {
+  const parts = [];
+  const h = b.h || 87, brown = '#4d3b30';
+  parts.push(part(cyl(0.5, 0.5, h, 8), brown, { y: h / 2, sx: L * 0.98, sz: D * 0.98, ry: Math.PI / 8 }));
+  for (let y = 6; y < h; y += 3.6) parts.push(part(cyl(0.5, 0.5, 0.4, 8), '#5e4b3f', { y, sx: L * 0.98 + 0.3, sz: D * 0.98 + 0.3, ry: Math.PI / 8 }));
+  for (const z of [D * 0.49, -D * 0.49]) parts.push(part(box(L * 0.12, h * 0.94, 1.2), '#1f262c', { y: h * 0.47, z }));
+  for (const x of [L * 0.49, -L * 0.49]) parts.push(part(box(1.2, h * 0.94, D * 0.12), '#1f262c', { x, y: h * 0.47 }));
+  parts.push(part(box(L * 0.6, 3, D * 0.6), '#3e3028', { y: h + 1.5 }));
+  parts.push(part(box(L * 0.42, 14, 0.6), '#f3efe2', { x: -L * 0.12, y: 14, z: D * 0.47 })); // 광화문글판 (글자는 넣지 않음)
+  parts.push(part(box(L * 0.44, 0.8, 0.7), '#2b5d8a', { x: -L * 0.12, y: 21.4, z: D * 0.47 }));
+  return { geom: merge(parts), h: h + 3 };
+}
+
 // ---------- 명동 ----------
 // 명동대성당: 붉은 벽돌 고딕 성당. 본당 길이 약 69m, 첨탑 약 45m.
 function cathedral(L, D) {
@@ -374,6 +428,10 @@ function samsung(L, D, b) {
 
 // 이름 규칙 → 모델. map: 이 지도에서만 (이름이 없는 건물은 near 위치로 찾고 rename 으로 이름을 붙인다)
 export const CITY_LANDMARKS = [
+  { test: /^세종문화회관 대극장$/, build: (L, D) => sejongCenter(L, D) },
+  { test: /^세종문화회관 (체임버홀|미술관)$/, build: (L, D) => sejongCenter(L, D, { big: false }) },
+  { test: /^D타워$/, build: dTower },
+  { test: /^교보생명빌딩$/, build: kyoboGwanghwamun },
   { test: /^명동대성당 본당$/, build: cathedral },
   { test: /^신세계백화점 본점 더 (헤리티지|리저브)$/, build: shinsegaeHeritage },
   { test: /^교보타워$/, build: kyoboTower },

@@ -1,9 +1,30 @@
 {
   "_설명": "fetch_terrain.py 스테이지별 설정. flatten: 건물·빌딩 밀집 지역을 깎는 반경(m), smooth: 넓게 다듬는 반경(m), flat: 평지",
-  "myeongdong": { "flatten": 150, "smooth": 50 },
-  "banpo": { "flatten": 250, "smooth": 80 },
-  "dogok": { "flatten": 250, "smooth": 80 },
-  "yeouido": { "flat": true },
-  "jamsil": { "flat": true },
-  "seoul": { "exag": 1, "cell": 60, "zoom": 12, "flatten": 120 }
+  "myeongdong": {
+    "flatten": 150,
+    "smooth": 50
+  },
+  "banpo": {
+    "flatten": 250,
+    "smooth": 80
+  },
+  "dogok": {
+    "flatten": 250,
+    "smooth": 80
+  },
+  "yeouido": {
+    "flat": true
+  },
+  "jamsil": {
+    "flat": true
+  },
+  "seoul": {
+    "exag": 1,
+    "cell": 60,
+    "zoom": 12,
+    "flatten": 120
+  },
+  "gwanghwamun": {
+    "flat": true
+  }
 }
