@@ -220,6 +220,8 @@ def convert(raw, region):
                 b[short] = tags[key]
         if tags.get('name'):
             b['n'] = tags['name']
+            if tags.get('name:en'):
+                b['ne'] = tags['name:en']  # 영어 이름 (게임에서 English를 고르면 말풍선에 씀)
         buildings.append(b)
 
     for way in ways.values():

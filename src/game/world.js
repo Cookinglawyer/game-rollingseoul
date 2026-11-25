@@ -448,11 +448,11 @@ export class World {
         mesh.castShadow = mesh.receiveShadow = true;
         mesh.position.set(f.cx, 0, -f.cn);
         mesh.rotation.y = f.rot;
-        this.addBuilding({ pts: b.p, h, name: (city && city.rename) || b.n || '', mesh, x: f.cx, z: -f.cn, ext: Math.max(f.L, f.D), landmark: true });
+        this.addBuilding({ pts: b.p, h, name: (city && city.rename) || b.n || '', nameEn: (city && city.rename ? city.renameEn : b.ne) || '', mesh, x: f.cx, z: -f.cn, ext: Math.max(f.L, f.D), landmark: true });
         return;
       }
       const { mesh, cx, cz, ext, h } = koreanBuilding(b, bi, facades);
-      this.addBuilding({ pts: b.p, h, name: b.n || '', mesh, x: cx, z: cz, ext, kind: b.k });
+      this.addBuilding({ pts: b.p, h, name: b.n || '', nameEn: b.ne || '', mesh, x: cx, z: cz, ext, kind: b.k });
     });
 
     // 지도에 없는 동상들 (지도 데이터에 같은 이름 지점이 있으면 그 위치로)
@@ -479,13 +479,13 @@ export class World {
         const mesh = new THREE.Mesh(geom, landmarkMaterial);
         mesh.position.set(e, 0, -n);
         const pts = [[e - w / 2, n - d / 2], [e + w / 2, n - d / 2], [e + w / 2, n + d / 2], [e - w / 2, n + d / 2]];
-        this.addBuilding({ pts, h, name: st.name, mesh, x: e, z: -n, ext: Math.max(w, d), landmark: true });
+        this.addBuilding({ pts, h, name: st.name, nameEn: st.nameEn || '', mesh, x: e, z: -n, ext: Math.max(w, d), landmark: true });
       }
     }
     this._segs = [];
   }
 
-  addBuilding({ pts, h, name, mesh, x, z, ext, landmark = false, kind }) {
+  addBuilding({ pts, h, name, nameEn = '', mesh, x, z, ext, landmark = false, kind }) {
     const bb = [Infinity, Infinity, -Infinity, -Infinity];
     for (const [px, n] of pts) {
       bb[0] = Math.min(bb[0], px); bb[1] = Math.min(bb[1], n);
@@ -499,7 +499,7 @@ export class World {
       mesh.position.y = base;
     }
     const bld = {
-      idx: this.buildings.length, name, pts, bb, h, base, x, z, mesh, alive: true, landmark,
+      idx: this.buildings.length, name, nameEn, pts, bb, h, base, x, z, mesh, alive: true, landmark,
       low: h < 2, // 아주 낮은 구조물은 밟고 지나갈 수 있음
       // 바닥 길이·높이 중 큰 쪽. 150m 넘는 초고층은 넘는 부분을 40%만 쳐서 스테이지 끝에 먹을 수 있게 한다
       pick: Math.max(h > 150 ? 150 + (h - 150) * 0.4 : h, ext) * 0.65,

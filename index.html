@@ -18,28 +18,32 @@
 </head>
 <body>
   <canvas id="bg"></canvas>
-  <button class="btn-music btn-music-menu" aria-label="음악 켜기/끄기">♪</button>
+  <button class="btn-music btn-music-menu" aria-label="음악 켜기/끄기" data-i18n-aria="music.aria">♪</button>
 
   <!-- 타이틀 화면 -->
   <section id="screen-title" class="screen active">
     <div class="title-wrap">
-      <p class="kicker">굴리고 · 붙이고 · 커지고</p>
+      <p class="kicker" data-i18n="title.kicker">굴리고 · 붙이고 · 커지고</p>
       <h1 class="game-title">
-        <span class="t1">서울</span>
-        <span class="t2">건물 다</span>
-        <span class="t3">따먹기</span>
+        <span class="t1" data-i18n="title.t1">서울</span>
+        <span class="t2" data-i18n="title.t2">건물 다</span>
+        <span class="t3" data-i18n="title.t3">따먹기</span>
       </h1>
       <button id="btn-start" class="btn-start">START</button>
-      <p class="hint">Enter 또는 Space 키로도 시작할 수 있어요</p>
+      <div class="lang-pick" role="group" aria-label="언어 / Language">
+        <button type="button" class="lang-btn" data-lang="ko" lang="ko">한국어</button>
+        <button type="button" class="lang-btn" data-lang="en" lang="en">English</button>
+      </div>
+      <p class="hint" data-i18n="title.hint">Enter 또는 Space 키로도 시작할 수 있어요</p>
     </div>
-    <footer class="credit">v0.2 prototype · 지도 데이터 © OpenStreetMap contributors</footer>
+    <footer class="credit" data-i18n="title.credit">v0.2 prototype · 지도 데이터 © OpenStreetMap contributors</footer>
   </section>
 
   <!-- 스테이지 선택 화면 -->
   <section id="screen-stages" class="screen">
     <header class="stage-header">
-      <button id="btn-back-title" class="btn-ghost">← 처음으로</button>
-      <h2>스테이지 선택</h2>
+      <button id="btn-back-title" class="btn-ghost" data-i18n="stages.back">← 처음으로</button>
+      <h2 data-i18n="stages.title">스테이지 선택</h2>
       <span class="progress" id="progress"></span>
     </header>
     <div id="stage-list" class="stage-list"></div>
@@ -53,16 +57,16 @@
       <p class="brief-district" id="brief-district"></p>
       <p class="brief-desc" id="brief-desc"></p>
       <dl class="brief-stats">
-        <div><dt>시작 크기</dt><dd id="brief-start"></dd></div>
-        <div><dt>목표 크기</dt><dd id="brief-goal"></dd></div>
-        <div><dt>제한 시간</dt><dd id="brief-time"></dd></div>
+        <div><dt data-i18n="brief.start">시작 크기</dt><dd id="brief-start"></dd></div>
+        <div><dt data-i18n="brief.goal">목표 크기</dt><dd id="brief-goal"></dd></div>
+        <div><dt data-i18n="brief.time">제한 시간</dt><dd id="brief-time"></dd></div>
       </dl>
       <p class="brief-targets" id="brief-targets"></p>
       <div class="brief-actions">
-        <button id="btn-back-stages" class="btn-ghost">← 스테이지 목록</button>
-        <button id="btn-play" class="btn-start small">굴리기 시작!</button>
+        <button id="btn-back-stages" class="btn-ghost" data-i18n="brief.back">← 스테이지 목록</button>
+        <button id="btn-play" class="btn-start small" data-i18n="brief.play">굴리기 시작!</button>
       </div>
-      <p class="brief-controls">조작: <b>W/↑</b> 앞으로 · <b>S/↓</b> 뒤로 · <b>A D/← →</b> 방향 전환 · <b>Esc</b> 일시정지 · <b>M</b> 음악 켜기/끄기<br />휴대폰: 화면을 누른 채 드래그</p>
+      <p class="brief-controls" data-i18n-html="brief.controls">조작: <b>W/↑</b> 앞으로 · <b>S/↓</b> 뒤로 · <b>A D/← →</b> 방향 전환 · <b>Esc</b> 일시정지 · <b>M</b> 음악 켜기/끄기<br />휴대폰: 화면을 누른 채 드래그</p>
       <p class="toast" id="toast"></p>
     </div>
   </section>
@@ -76,7 +80,7 @@
 
     <div class="hud">
       <div class="hud-size">
-        <span class="hud-label">공 크기</span>
+        <span class="hud-label" data-i18n="hud.size">공 크기</span>
         <span id="hud-size">10.0cm</span>
       </div>
       <div class="hud-center">
@@ -84,28 +88,28 @@
         <span id="hud-time" class="hud-time">0:00</span>
       </div>
       <div class="hud-right">
-        <button id="btn-pause" class="btn-pause" aria-label="일시정지">II</button>
-        <button class="btn-music btn-music-game" aria-label="음악 켜기/끄기">♪</button>
-        <span class="hud-label">목표 <b id="hud-goal"></b></span>
+        <button id="btn-pause" class="btn-pause" aria-label="일시정지" data-i18n-aria="hud.pause">II</button>
+        <button class="btn-music btn-music-game" aria-label="음악 켜기/끄기" data-i18n-aria="music.aria">♪</button>
+        <span class="hud-label"><span data-i18n="hud.goal">목표</span> <b id="hud-goal"></b></span>
         <span id="hud-progress">0%</span>
         <div class="hud-bar"><div id="hud-bar"></div></div>
         <span id="hud-bld" class="hud-sub"></span>
       </div>
     </div>
-    <p id="hud-placeholder" class="hud-placeholder" hidden>지도 데이터 준비 중 · 지금은 건물이 없는 테스트용 빈 광장입니다</p>
+    <p id="hud-placeholder" class="hud-placeholder" hidden data-i18n="hud.placeholder">지도 데이터 준비 중 · 지금은 건물이 없는 테스트용 빈 광장입니다</p>
     <div id="feed" class="feed"></div>
     <div id="banner" class="banner" hidden></div>
     <div id="countdown" class="countdown" hidden>READY</div>
     <canvas id="minimap" class="minimap"></canvas>
-    <p class="attribution">지도 데이터 © OpenStreetMap contributors</p>
+    <p class="attribution" data-i18n="map.attribution">지도 데이터 © OpenStreetMap contributors</p>
 
     <div id="pause" class="overlay" hidden>
       <div class="panel">
-        <h2>일시정지</h2>
+        <h2 data-i18n="pause.title">일시정지</h2>
         <div class="panel-actions">
-          <button id="btn-resume" class="btn-start small">계속하기</button>
-          <button id="btn-retry-pause" class="btn-ghost">처음부터 다시</button>
-          <button id="btn-quit" class="btn-ghost">스테이지 목록</button>
+          <button id="btn-resume" class="btn-start small" data-i18n="pause.resume">계속하기</button>
+          <button id="btn-retry-pause" class="btn-ghost" data-i18n="pause.retry">처음부터 다시</button>
+          <button id="btn-quit" class="btn-ghost" data-i18n="pause.quit">스테이지 목록</button>
         </div>
       </div>
     </div>
@@ -115,14 +119,14 @@
         <p class="result-kicker" id="result-kicker"></p>
         <h2 id="result-title"></h2>
         <dl class="brief-stats">
-          <div><dt>최종 크기</dt><dd id="result-size"></dd></div>
-          <div><dt>먹은 건물</dt><dd id="result-eaten"></dd></div>
-          <div><dt>걸린 시간</dt><dd id="result-time"></dd></div>
+          <div><dt data-i18n="result.size">최종 크기</dt><dd id="result-size"></dd></div>
+          <div><dt data-i18n="result.eaten">먹은 건물</dt><dd id="result-eaten"></dd></div>
+          <div><dt data-i18n="result.time">걸린 시간</dt><dd id="result-time"></dd></div>
         </dl>
         <p class="result-note" id="result-note"></p>
         <div class="panel-actions">
-          <button id="btn-retry" class="btn-ghost">다시 하기</button>
-          <button id="btn-next" class="btn-start small">스테이지 목록</button>
+          <button id="btn-retry" class="btn-ghost" data-i18n="result.retry">다시 하기</button>
+          <button id="btn-next" class="btn-start small" data-i18n="result.next">스테이지 목록</button>
         </div>
       </div>
     </div>

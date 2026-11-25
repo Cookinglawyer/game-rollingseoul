@@ -426,7 +426,7 @@ function samsung(L, D, b) {
   return done(glassTower(L, D, b.h || 200, { body: '#3e5a72', band: '#9db4c6', crown: 'slope' }));
 }
 
-// 이름 규칙 → 모델. map: 이 지도에서만 (이름이 없는 건물은 near 위치로 찾고 rename 으로 이름을 붙인다)
+// 이름 규칙 → 모델. map: 이 지도에서만 (이름이 없는 건물은 near 위치로 찾고 rename 으로 이름을 붙인다, renameEn: 영어 이름)
 export const CITY_LANDMARKS = [
   { test: /^세종문화회관 대극장$/, build: (L, D) => sejongCenter(L, D) },
   { test: /^세종문화회관 (체임버홀|미술관)$/, build: (L, D) => sejongCenter(L, D, { big: false }) },
@@ -436,21 +436,21 @@ export const CITY_LANDMARKS = [
   { test: /^신세계백화점 본점 더 (헤리티지|리저브)$/, build: shinsegaeHeritage },
   { test: /^교보타워$/, build: kyoboTower },
   { test: /^삼성(전자|생명|물산) 서초(사옥|타워)$/, build: samsung },
-  { test: /^헤밀턴 호텔$|^해밀턴 ?호텔$/, build: hamilton, rename: '해밀턴호텔' },
+  { test: /^헤밀턴 호텔$|^해밀턴 ?호텔$/, build: hamilton, rename: '해밀턴호텔', renameEn: 'Hamilton Hotel' },
   { test: /^이태원119안전센터$/, build: fireStation },
   { test: /^제일기획$/, build: cheil },
   { test: /^이슬람교서울중앙성원$/, build: mosque },
-  { test: /^한화 갤러리아 포레스트 타워$/, build: galleriaForet, rename: '갤러리아포레' },
+  { test: /^한화 갤러리아 포레스트 타워$/, build: galleriaForet, rename: '갤러리아포레', renameEn: 'Galleria Foret' },
   { test: /^아크로서울포레스트 [AB]동$/, build: acroForest },
   { test: /^디올 성수$/, build: dior },
-  { test: /^신세계백화점$/, map: '반포동·잠원동', build: shinsegaeGangnam, rename: '신세계백화점 강남점' },
+  { test: /^신세계백화점$/, map: '반포동·잠원동', build: shinsegaeGangnam, rename: '신세계백화점 강남점', renameEn: 'Shinsegae Department Store Gangnam' },
   // 대법원(지상 16층): 네 동 중 본관(외곽선이 가장 복잡한 동)에 가운데 탑
   { test: /^대법원$/, build: (L, D, b) => civic(L, D, 24, { tower: b.p.length >= 30 ? 68 : 0 }) },
-  { test: /^서울법원종합청사$/, build: (L, D) => civic(L, D, 45), rename: '서울중앙지방법원' },
+  { test: /^서울법원종합청사$/, build: (L, D) => civic(L, D, 45), rename: '서울중앙지방법원', renameEn: 'Seoul Central District Court' },
   { test: /^(서울광역)?공소청( 본관)?$/, build: (L, D, b) => civic(L, D, Math.max(b.h, 30)) },
   { test: /^(삼성타워팰리스1차 [A-D]동|타워팰리스 [A-D]동)$/, build: towerPalace1 },
   { test: /^(삼성타워팰리스2차 [EF]동|타워팰리스 [EF]동)$/, build: towerPalace2 },
-  { test: /^G$/, map: '도곡동·대치동', build: towerPalace3, rename: '타워팰리스3차 G동' },
+  { test: /^G$/, map: '도곡동·대치동', build: towerPalace3, rename: '타워팰리스3차 G동', renameEn: 'Tower Palace 3 Building G' },
   { test: /^타워팰리스 ?3차 ?G동$/, build: towerPalace3 },
   { test: /^한보은마아파트 \d+동$/, build: eunma },
   { test: /^대치동부센트레빌아파트 \d+동$/, build: centreville },
@@ -461,8 +461,8 @@ export const CITY_LANDMARKS = [
   { test: /^대우트럼프월드/, build: trump },
   { test: /^롯데월드타워$/, build: lotteTower },
   { test: /^롯데호텔월드$/, build: lotteHotel },
-  { map: '잠실', near: [-564, -53], build: galleriaPalace, rename: '갤러리아팰리스' },
-  { test: /^문화역서울284$/, build: seoulStation, rename: '서울역(문화역서울284)' },
+  { map: '잠실', near: [-564, -53], build: galleriaPalace, rename: '갤러리아팰리스', renameEn: 'Galleria Palace' },
+  { test: /^문화역서울284$/, build: seoulStation, rename: '서울역(문화역서울284)', renameEn: 'Culture Station Seoul 284' },
   { test: /^서울숲트리마제 10\d동$/, build: trimage },
 ];
 

@@ -109,6 +109,33 @@ html, body {
 
 .hint { margin-top: 18px; font-size: 14px; opacity: 0.7; }
 
+/* 언어 선택 (한국어 / English) */
+.lang-pick {
+  display: inline-flex;
+  margin-top: 22px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.85);
+}
+.lang-btn {
+  padding: 8px 18px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.lang-btn + .lang-btn { border-left: 3px solid var(--ink); }
+.lang-btn:hover { background: #fff; }
+.lang-btn[aria-pressed='true'] { background: var(--yellow); }
+
+/* 영어 제목은 글자가 길어 조금 작게 */
+html[lang='en'] .game-title .t2 { font-size: clamp(38px, 9vw, 100px); }
+html[lang='en'] .game-title .t3 { font-size: clamp(50px, 12.5vw, 150px); }
+
 .credit {
   position: absolute;
   bottom: 12px;

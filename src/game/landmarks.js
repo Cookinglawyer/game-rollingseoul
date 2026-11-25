@@ -228,8 +228,8 @@ export const LANDMARK_BUILDINGS = { 광화문: gwanghwamun, 기념비전: ginyeo
 
 // 지도 데이터에 따로 없는 동상들. lonlat은 기본 위치, osm은 지도 데이터의 동상 이름으로 위치를 맞출 때 쓰는 단어.
 export const STATUES = [
-  { name: '세종대왕 동상', osm: '세종대왕', lonlat: [126.97689, 37.57266], build: sejongStatue },
-  { name: '이순신 장군 동상', osm: '이순신', lonlat: [126.97691, 37.57102], build: yiStatue },
-  { name: '거북선', follow: '이순신 장군 동상', offset: [0, -11], build: turtleShip }, // 이순신 동상 앞(남쪽) 11m
-  { name: '스프링', osm: '스프링', lonlat: [126.97778, 37.56922], build: springSculpture }, // 청계광장 (클래스 올든버그, 약 20m)
+  { name: '세종대왕 동상', nameEn: 'Statue of King Sejong', osm: '세종대왕', lonlat: [126.97689, 37.57266], build: sejongStatue },
+  { name: '이순신 장군 동상', nameEn: 'Statue of Admiral Yi Sun-sin', osm: '이순신', lonlat: [126.97691, 37.57102], build: yiStatue },
+  { name: '거북선', nameEn: 'Turtle Ship', follow: '이순신 장군 동상', offset: [0, -11], build: turtleShip }, // 이순신 동상 앞(남쪽) 11m
+  { name: '스프링', nameEn: 'Spring', osm: '스프링', lonlat: [126.97778, 37.56922], build: springSculpture }, // 청계광장 (클래스 올든버그, 약 20m)
 ];

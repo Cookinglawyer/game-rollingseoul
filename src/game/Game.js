@@ -7,6 +7,7 @@ import { playMusic, stopMusic, setMusicSpeed, duckMusic } from './music.js';
 import { Player } from './player.js';
 import { facadeMaterial } from './facades.js';
 import { createSky, pickWeather, sunDirection } from './sky.js';
+import { t, propName, buildingName, stageText, joinList } from '../i18n.js';
 
 // 흡수할 때 부피가 얼마나 늘어나는지: 지름³ += GROWTH × 크기³
 const GROWTH = 2.6;
@@ -151,7 +152,7 @@ export class Game {
     this.timeLeft = this.stage.timeLimit;
     this.elapsed = 0;
     this.countdown = 2.2;
-    this.feed(`오늘 서울 날씨: ${this.weather.name}`);
+    this.feed(t('game.weather', { name: t(`weather.${this.weather.id}`) }));
     this.running = true;
     this.last = performance.now();
     this._raf = requestAnimationFrame((t) => this.loop(t));
@@ -442,7 +443,7 @@ export class Game {
     this.r = this.diameter / 2;
     popSound(0.9);
     bonkSound();
-    this.feed(`+ ${b.name || '건물'}`);
+    this.feed(`+ ${buildingName(b) || t('game.building')}`);
     this.trimStuck();
     this.checkUnlocks();
   }
@@ -463,7 +464,7 @@ export class Game {
     this.r = this.diameter / 2;
 
     popSound(it.type.pick / this.diameter);
-    this.feed(`+ ${it.type.name}`);
+    this.feed(`+ ${propName(it.type)}`);
     this.trimStuck();
     this.checkUnlocks();
   }
@@ -502,24 +503,24 @@ export class Game {
 
   checkUnlocks() {
     const newly = [];
-    for (const t of PROP_TYPES) {
-      if (!this.pickable.has(t.name) && canPick(t, this.diameter) && this.items.some((i) => i.alive && i.type === t)) {
-        this.pickable.add(t.name);
-        newly.push(t.name);
+    for (const type of PROP_TYPES) {
+      if (!this.pickable.has(type.name) && canPick(type, this.diameter) && this.items.some((i) => i.alive && i.type === type)) {
+        this.pickable.add(type.name);
+        newly.push(propName(type));
       }
     }
     // 건물: 처음 먹을 수 있게 됐을 때, 그리고 이름난 큰 건물이 먹을 수 있게 됐을 때 알림
     if (!this.buildingsUnlocked && this.world.buildings.some((b) => b.alive && b.inPlay && this.canEatBuilding(b))) {
       this.buildingsUnlocked = true;
-      newly.push('건물');
+      newly.push(t('game.buildings'));
     }
     for (const b of this.world.buildings) {
       if (b.alive && b.name && (b.pick > 45 || b.landmark) && !this.announced.has(b.name) && this.canEatBuilding(b)) {
         this.announced.add(b.name);
-        if (newly.length < 3) newly.push(b.name);
+        if (newly.length < 3) newly.push(buildingName(b));
       }
     }
-    if (newly.length) this.banner(`이제 ${[...new Set(newly)].join(', ')}도 먹을 수 있다!`);
+    if (newly.length) this.banner(t('game.unlock', { list: joinList([...new Set(newly)]) }));
   }
 
   // ---------- 매 프레임 ----------
@@ -542,7 +543,7 @@ export class Game {
       this.countdown -= dt;
       const label = this.$('#countdown');
       if (this.countdown <= 0) {
-        label.textContent = '굴려라!';
+        label.textContent = t('game.go');
         setTimeout(() => { label.hidden = true; }, 700);
       } else {
         label.hidden = false;
@@ -746,7 +747,7 @@ export class Game {
           bonkSound();
           if (!this._bigWarnAt || this.elapsed - this._bigWarnAt > 2.5) {
             this._bigWarnAt = this.elapsed;
-            this.feed(`${it.type.name}: 아직 너무 커요 (${formatSize(it.type.pick / 0.8)} 필요)`, true);
+            this.feed(t('game.tooBig', { name: propName(it.type), size: formatSize(it.type.pick / 0.8) }), true);
           }
         }
       }
@@ -820,7 +821,7 @@ export class Game {
         const b = near[i] && near[i][1];
         if (l.b !== b) {
           l.b = b || null;
-          if (b) l.el.textContent = b.name;
+          if (b) l.el.textContent = buildingName(b);
         }
       });
     }
@@ -841,7 +842,7 @@ export class Game {
 
   // ---------- HUD ----------
   setupHud() {
-    this.$('#hud-stage').textContent = this.stage.name;
+    this.$('#hud-stage').textContent = stageText(this.stage, 'name');
     this.$('#hud-placeholder').hidden = !this.mapData.placeholder;
     this.$('#hud-goal').textContent = formatSize(this.goal);
     this.$('#countdown').hidden = false;
@@ -888,16 +889,16 @@ export class Game {
 
   updateHud(dt) {
     this.$('#hud-size').textContent = formatSize(this.r * 2);
-    const t = Math.ceil(this.timeLeft);
+    const secs = Math.ceil(this.timeLeft);
     const timer = this.$('#hud-time');
-    timer.textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+    timer.textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
     timer.classList.toggle('hurry', this.timeLeft <= 30);
     // 목표까지 진행률은 로그 비율 (10cm→1m와 10m→100m가 같은 한 걸음)
     const start = this.stage.startSize;
     const prog = Math.max(0, Math.min(1, Math.log(this.diameter / start) / Math.log(this.goal / start)));
     this.$('#hud-progress').textContent = `${Math.floor(prog * 100)}%`;
     this.$('#hud-bar').style.width = `${prog * 100}%`;
-    this.$('#hud-bld').textContent = `먹은 건물 ${this.bEaten} / ${this.bTotal}`;
+    this.$('#hud-bld').textContent = t('hud.buildings', { n: this.bEaten, total: this.bTotal });
 
     this._hudT -= dt;
     if (this._hudT <= 0) {

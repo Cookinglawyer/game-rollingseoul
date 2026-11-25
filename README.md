@@ -23,6 +23,16 @@ GitHub Pages 주소(https://cookinglawyer.github.io/game-rollingseoul/)로 열�
 
 `manifest.webmanifest`(앱 이름·아이콘), `sw.js`(오프라인 저장, 항상 새 버전 먼저), `icons/`.
 
+## 언어
+
+시작 화면에서 **한국어 / English**를 고른다. 고른 언어는 저장되어 다음에도 유지된다 (처음엔 브라우저 언어를 따름).
+
+- 화면 문구·게임 알림: `src/i18n.js`의 `STRINGS`
+- 스테이지 이름·구·소개·먹잇감: `src/stages.js`의 `en`
+- 소품 이름: `src/game/props.js`의 `en`, 동상 이름: `landmarks.js`의 `nameEn`, 랜드마크 새 이름: `citymarks.js`의 `renameEn`
+- 건물 이름 말풍선: English면 OSM `name:en`(지도 파일의 `ne`)이 있으면 영어, 없으면 한국어.
+  `'101동'` 같은 이름에 단지 이름을 붙인 건물(`apt_names.py`)은 한국어로 둔다.
+
 ## 조작
 
 | 키 | 동작 |
@@ -51,6 +61,7 @@ GitHub Pages 주소(https://cookinglawyer.github.io/game-rollingseoul/)로 열�
 ```
 index.html            화면 구성 (타이틀, 스테이지 선택, 브리핑, 게임, 결과)
 src/main.js           화면 전환, 저장(localStorage), 타이틀 배경 애니메이션
+src/i18n.js           언어 선택(한국어/English): 문구, 저장, 스테이지·소품·건물 이름 고르기
 src/stages.js         스테이지 목록과 설정 (시간, 시작 크기, 지도 파일)
 src/game/Game.js      게임 루프: 공 굴리기, 흡수(물건·건물), 카메라, HUD, 승패
 src/game/player.js    공을 미는 캐릭터 (5등신 블록 인형, 검은 반팔티·형광 연두 반바지, 키 16cm 고정)
@@ -93,7 +104,7 @@ Overpass API(overpass-api.de)에서 `tools/regions.json`의 범위를 받아 `da
 건물 2,506(놀이 구역 안 2,089), 도로 1,104, 광장·녹지 367, 가로수 523. 세종대왕·이순신 동상 위치 포함.
 지하 시설(`layer`/`level` 음수, 예: 세종이야기)과 고가 역사(`building=train_station`이면서 `layer` 1 이상, 예: 성수역)는 제외하고, 조선 건축 태그가 있는 건물(광화문, 동십자각 등)은 전통 건물 색으로 그린다.
 
-- 건물: 외곽선 + 높이(`height` → `building:levels` × 3.3m → 기본값 14m)
+- 건물: 외곽선 + 높이(`height` → `building:levels` × 3.3m → 기본값 14m), 이름(`name` → `n`, `name:en` → `ne`)
 - 도로: 중심선 + 폭(`lanes` × 3.3m 또는 도로 등급별 기본값)
 - 광장/공원/물, 가로수(`natural=tree`, `tree_row`)
 

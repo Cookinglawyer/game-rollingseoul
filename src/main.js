@@ -1,6 +1,7 @@
 import { STAGES } from './stages.js';
 import { Game, formatSize as formatBall } from './game/Game.js';
 import { playMusic, toggleMusic, isMusicMuted } from './game/music.js';
+import { t, getLang, setLang, onLangChange, applyStatic, stageText } from './i18n.js';
 
 const SAVE_KEY = 'seoul-ddamukgi-save';
 
@@ -67,33 +68,37 @@ function renderStages() {
     card.className = 'stage-card' + (unlocked ? '' : ' locked') + (stage.final ? ' final' : '');
     card.disabled = !unlocked;
     card.innerHTML = `
-      <span class="no">${stage.final ? 'FINAL STAGE' : `STAGE ${stage.no}`}</span>
-      <span class="name">${stage.name}</span>
-      <span class="district">${stage.district}</span>
-      <p class="desc">${stage.desc}</p>
+      <span class="no">${stageNo(stage)}</span>
+      <span class="name">${stageText(stage, 'name')}</span>
+      <span class="district">${stageText(stage, 'district')}</span>
+      <p class="desc">${stageText(stage, 'desc')}</p>
       <div class="meta">
         <span>⏱ ${formatTime(stage.timeLimit)}</span>
-        <span>🎯 ${stage.map ? formatSize(stage.goalSize) : '준비 중'}</span>
+        <span>🎯 ${stage.map ? formatSize(stage.goalSize) : t('stages.preparing')}</span>
         <span class="best">${record ? `★ ${formatBall(record.size)}` : ''}</span>
       </div>`;
     card.addEventListener('click', () => openBriefing(stage));
     list.appendChild(card);
   });
   const clearedCount = STAGES.filter((s) => save.cleared[s.id]).length;
-  document.getElementById('progress').textContent = `클리어 ${clearedCount} / ${STAGES.length}`;
+  document.getElementById('progress').textContent = t('stages.progress', { n: clearedCount, total: STAGES.length });
+}
+
+function stageNo(stage) {
+  return stage.final ? t('stage.final') : t('stage.no', { no: stage.no });
 }
 
 let currentStage = null;
 function openBriefing(stage) {
   currentStage = stage;
-  document.getElementById('brief-no').textContent = stage.final ? 'FINAL STAGE' : `STAGE ${stage.no}`;
-  document.getElementById('brief-name').textContent = stage.name;
-  document.getElementById('brief-district').textContent = stage.district;
-  document.getElementById('brief-desc').textContent = stage.desc;
+  document.getElementById('brief-no').textContent = stageNo(stage);
+  document.getElementById('brief-name').textContent = stageText(stage, 'name');
+  document.getElementById('brief-district').textContent = stageText(stage, 'district');
+  document.getElementById('brief-desc').textContent = stageText(stage, 'desc');
   document.getElementById('brief-start').textContent = formatSize(stage.startSize);
   document.getElementById('brief-goal').textContent = formatSize(stage.goalSize);
   document.getElementById('brief-time').textContent = formatTime(stage.timeLimit);
-  document.getElementById('brief-targets').textContent = `먹잇감: ${stage.targets.join(' · ')}`;
+  document.getElementById('brief-targets').textContent = t('brief.targets', { list: stageText(stage, 'targets').join(' · ') });
   document.getElementById('toast').textContent = '';
   show('screen-briefing');
 }
@@ -110,7 +115,7 @@ document.getElementById('btn-back-stages').addEventListener('click', () => {
 });
 document.getElementById('btn-play').addEventListener('click', () => {
   if (!currentStage.map) {
-    document.getElementById('toast').textContent = '이 스테이지는 아직 지도를 준비 중이에요!';
+    document.getElementById('toast').textContent = t('brief.noMap');
     return;
   }
   startGame(currentStage);
@@ -143,21 +148,21 @@ function leaveGame() {
 }
 
 function showResult(stage, res) {
-  const t = Math.round(res.timeUsed);
-  $g('result-kicker').textContent = stage.name;
-  $g('result-title').textContent = res.win ? '목표 달성!' : '시간 초과';
+  const secs = Math.round(res.timeUsed);
+  $g('result-kicker').textContent = stageText(stage, 'name');
+  $g('result-title').textContent = res.win ? t('result.win') : t('result.lose');
   $g('result-size').textContent = formatBall(res.size);
   $g('result-eaten').textContent = `${res.buildings} / ${res.buildingsTotal}`;
-  $g('result-time').textContent = formatTime(t);
+  $g('result-time').textContent = formatTime(secs);
   if (res.win) {
     const prev = save.cleared[stage.id];
     const best = !prev || res.timeUsed < prev.time;
     save.cleared[stage.id] = best ? { size: res.size, time: res.timeUsed } : prev;
     writeSave();
     const next = STAGES[STAGES.indexOf(stage) + 1];
-    $g('result-note').textContent = (best && prev ? '최고 기록! ' : '') + (next ? `다음 스테이지 '${next.name}'이(가) 열렸어요.` : '');
+    $g('result-note').textContent = (best && prev ? t('result.best') : '') + (next ? t('result.unlocked', { name: stageText(next, 'name') }) : '');
   } else {
-    $g('result-note').textContent = `목표 ${formatBall(res.goal)}까지 ${formatBall(res.goal - res.size)} 모자랐어요. 다시 도전!`;
+    $g('result-note').textContent = t('result.short', { goal: formatBall(res.goal), left: formatBall(res.goal - res.size) });
   }
   $g('result').hidden = false;
 }
@@ -188,7 +193,7 @@ window.addEventListener('keydown', startMenuMusic, { once: true });
 function syncMusicButtons() {
   for (const b of document.querySelectorAll('.btn-music')) {
     b.classList.toggle('off', isMusicMuted());
-    b.title = isMusicMuted() ? '음악 켜기 (M)' : '음악 끄기 (M)';
+    b.title = isMusicMuted() ? t('music.on') : t('music.off');
   }
 }
 for (const b of document.querySelectorAll('.btn-music')) {
@@ -201,12 +206,24 @@ for (const b of document.querySelectorAll('.btn-music')) {
 }
 syncMusicButtons();
 
+// ---------- 언어 선택 (타이틀 화면) ----------
+function syncLang() {
+  applyStatic();
+  syncMusicButtons();
+  for (const b of document.querySelectorAll('.lang-btn')) b.setAttribute('aria-pressed', String(b.dataset.lang === getLang()));
+}
+for (const b of document.querySelectorAll('.lang-btn')) {
+  b.addEventListener('click', () => setLang(b.dataset.lang));
+}
+onLangChange(syncLang);
+syncLang();
+
 window.addEventListener('keydown', (e) => {
   if (e.key.toLowerCase() === 'm' && !e.repeat) {
     toggleMusic();
     syncMusicButtons();
   }
-  if (current?.id === 'screen-title' && (e.key === 'Enter' || e.key === ' ')) {
+  if (current?.id === 'screen-title' && (e.key === 'Enter' || e.key === ' ') && !e.target.closest?.('.lang-pick')) {
     e.preventDefault();
     document.getElementById('btn-start').click();
   } else if (current?.id === 'screen-game') {

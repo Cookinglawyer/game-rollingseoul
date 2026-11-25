@@ -101,6 +101,7 @@ def main():
             c = min(hits, key=lambda c: c['a'])
             b['n'] = f"{c['n']} {m.group(1) or m.group(2)}동"
             b.pop('dn', None)
+            b.pop('ne', None)  # '101동' 같은 이름의 영어 이름은 단지 이름과 맞지 않으므로 버린다 (말풍선은 한국어)
             named += 1
         if total:
             path.write_text(json.dumps(data, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')

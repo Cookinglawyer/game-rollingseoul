@@ -163,6 +163,8 @@ def main():
             b['k'] = 'apt'
         if name and not DONG_NAME.match(name):
             b['n'] = name
+            if tags.get('name:en'):
+                b['ne'] = tags['name:en']  # 영어 이름
         elif name:
             b['dn'] = name  # 동 번호만 있는 이름: tools/apt_names.py 가 단지 이름을 붙여 n 으로 바꾼다
         cands.append({'b': b, 'pick': max(he, ext) * 0.65, 'x': cx, 'y': cy, 'must': name in LANDMARKS})

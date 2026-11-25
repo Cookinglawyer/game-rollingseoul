@@ -3,6 +3,7 @@
 // startSize: 시작 공 지름(m), goalSize: 이 크기가 되면 클리어(m)
 // map: tools/fetch_osm.py 로 만든 지도 데이터 (없으면 아직 준비 중)
 // timeLimit: 초
+// en: English를 골랐을 때 쓰는 이름·구·소개·먹잇감 (src/i18n.js)
 export const STAGES = [
   {
     id: 'gwanghwamun',
@@ -15,6 +16,12 @@ export const STAGES = [
     goalSize: 250,
     timeLimit: 420,
     targets: ['동전', '비둘기', '서울 택시', '세종대왕 동상', '이순신 장군 동상', '광화문', '서울시청'],
+    en: {
+      name: "Gwanghwamun Square",
+      district: "Jongno-gu",
+      desc: "Start as a 10cm ball by the statue of King Sejong! Roll up everything from coins to office towers, from Gyeongbokgung Palace to Seoul City Hall, and reach 250m.",
+      targets: ["Coin", "Pigeon", "Seoul taxi", "Statue of King Sejong", "Statue of Admiral Yi Sun-sin", "Gwanghwamun Gate", "Seoul City Hall"],
+    },
   },
   {
     id: 'hongdae',
@@ -27,6 +34,12 @@ export const STAGES = [
     goalSize: 220,
     timeLimit: 420,
     targets: ['동전', '커피컵', '시민', '배달 오토바이', '간선버스', '홍익대학교'],
+    en: {
+      name: "Hongdae",
+      district: "Mapo-gu",
+      desc: "Start at the playground by Hongik University's main gate (Hongik Culture Park)! Roll up the walking street, Hongik University and the club street, buskers and crowds included, and reach 220m.",
+      targets: ["Coin", "Coffee cup", "Citizen", "Delivery scooter", "Blue bus", "Hongik University"],
+    },
   },
   {
     id: 'myeongdong',
@@ -39,6 +52,12 @@ export const STAGES = [
     goalSize: 280,
     timeLimit: 420,
     targets: ['동전', '커피컵', '관광객', '서울 택시', '간선버스', '명동대성당', '롯데백화점'],
+    en: {
+      name: "Myeongdong",
+      district: "Jung-gu",
+      desc: "Start in front of Myeongdong Theater! Roll up the street stalls, shopping crowds, Myeongdong Cathedral and the department stores, and reach 280m.",
+      targets: ["Coin", "Coffee cup", "Tourist", "Seoul taxi", "Blue bus", "Myeongdong Cathedral", "Lotte Department Store"],
+    },
   },
   {
     id: 'gangnam',
@@ -51,6 +70,12 @@ export const STAGES = [
     goalSize: 300,
     timeLimit: 300,
     targets: ['동전', '커피컵', '직장인', '서울 택시', '간선버스', '메리츠타워', '삼성전자 서초사옥'],
+    en: {
+      name: "Gangnam Station",
+      district: "Gangnam-gu · Seocho-gu",
+      desc: "Start right in the middle of the Gangnam Station crossroads! Roll up the towers along Gangnam-daero and the Samsung Electronics Seocho building, and reach 300m.",
+      targets: ["Coin", "Coffee cup", "Office worker", "Seoul taxi", "Blue bus", "Meritz Tower", "Samsung Electronics Seocho"],
+    },
   },
   {
     id: 'itaewon',
@@ -63,6 +88,12 @@ export const STAGES = [
     goalSize: 190,
     timeLimit: 300,
     targets: ['동전', '시민', '관광객', '서울 택시', '간선버스', '해밀턴 호텔', '제일기획'],
+    en: {
+      name: "Itaewon · Hannam-dong",
+      district: "Yongsan-gu",
+      desc: "Start at Itaewon Station! Roll up World Food Street, the Hamilton Hotel and the alleys of Hannam-dong, and reach 190m.",
+      targets: ["Coin", "Citizen", "Tourist", "Seoul taxi", "Blue bus", "Hamilton Hotel", "Cheil Worldwide"],
+    },
   },
   {
     id: 'seongsu',
@@ -75,6 +106,12 @@ export const STAGES = [
     goalSize: 350,
     timeLimit: 300,
     targets: ['커피컵', '따릉이', '시민', '트럭', '간선버스', '서울숲', '에스타워', '더클래식500'],
+    en: {
+      name: "Konkuk Univ. · Seongsu-dong",
+      district: "Seongdong-gu · Gwangjin-gu",
+      desc: "Start at Seongsu Station! Roll through Seoul Forest, the café streets, old factories and office parks, the Konkuk University shops and the Jayang-dong riverside, and reach 350m.",
+      targets: ["Coffee cup", "Ttareungyi bike", "Citizen", "Truck", "Blue bus", "Seoul Forest", "S-Tower", "The Classic 500"],
+    },
   },
   {
     id: 'banpo',
@@ -87,6 +124,12 @@ export const STAGES = [
     goalSize: 380,
     timeLimit: 240,
     targets: ['시민', '서울 택시', '간선버스', '트럭', '신세계백화점', 'JW 메리어트', '서울성모병원'],
+    en: {
+      name: "Banpo-dong · Jamwon-dong",
+      district: "Seocho-gu",
+      desc: "Start at Express Bus Terminal Station! Gobble up the Shinsegae Department Store, JW Marriott, Seorae Village, the Banpo apartment blocks and the Han River park all at once, and reach 380m.",
+      targets: ["Citizen", "Seoul taxi", "Blue bus", "Truck", "Shinsegae Department Store", "JW Marriott", "Seoul St. Mary's Hospital"],
+    },
   },
   {
     id: 'dogok',
@@ -99,6 +142,12 @@ export const STAGES = [
     goalSize: 350,
     timeLimit: 240,
     targets: ['책', '학생', '승용차', 'SUV', '간선버스', '그랑프리백화점', '타워팰리스'],
+    en: {
+      name: "Dogok-dong · Daechi-dong",
+      district: "Gangnam-gu",
+      desc: "Start at Dogok Station! Roll up southern Gangnam, from Yangjaecheon Stream to the Daechi-dong cram-school street, Eunma Apartments and Tower Palace, and reach 350m.",
+      targets: ["Book", "Student", "Car", "SUV", "Blue bus", "Grand Prix Department Store", "Tower Palace"],
+    },
   },
   {
     id: 'yeouido',
@@ -111,6 +160,12 @@ export const STAGES = [
     goalSize: 330,
     timeLimit: 240,
     targets: ['커피컵', '직장인', '서울 택시', '간선버스', 'IFC', '파크원', '63빌딩', '국회의사당'],
+    en: {
+      name: "Yeouido",
+      district: "Yeongdeungpo-gu",
+      desc: "Start in front of IFC Mall! Roll up the financial district towers, Yeouido Park, the National Assembly and the 63 Building in one go, and reach 330m.",
+      targets: ["Coffee cup", "Office worker", "Seoul taxi", "Blue bus", "IFC", "Parc.1", "63 Building", "National Assembly"],
+    },
   },
   {
     id: 'jamsil',
@@ -123,6 +178,12 @@ export const STAGES = [
     goalSize: 350,
     timeLimit: 240,
     targets: ['시민', '관광객', '서울 택시', '간선버스', '롯데월드', '롯데월드타워'],
+    en: {
+      name: "Jamsil",
+      district: "Songpa-gu",
+      desc: "Start in front of Lotte Hotel! Roll up Lotte World, Seokchon Lake and the apartment blocks. Once your ball passes 250m you can even eat the 555m Lotte World Tower! Reach 350m.",
+      targets: ["Citizen", "Tourist", "Seoul taxi", "Blue bus", "Lotte World", "Lotte World Tower"],
+    },
   },
   {
     id: 'seoul',
@@ -135,6 +196,12 @@ export const STAGES = [
     goalSize: 1000,
     timeLimit: 210,
     targets: ['아파트 단지', '코엑스', '63빌딩', '남산서울타워', '한강 다리', '롯데월드타워'],
+    en: {
+      name: "All of Seoul",
+      district: "Seoul",
+      desc: "Final stage! Start as a 50m ball at Seoul Plaza and roll up the whole city: apartment complexes, COEX, the 63 Building, N Seoul Tower, the Han River bridges and Lotte World Tower. Reach 1km! The Han River bridges can only be eaten once your ball passes 700m.",
+      targets: ["Apartment complex", "COEX", "63 Building", "N Seoul Tower", "Han River bridge", "Lotte World Tower"],
+    },
     final: true,
   },
 ];
